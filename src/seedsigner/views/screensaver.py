@@ -46,10 +46,152 @@ class OpeningSplashView(View):
     force_partner_logos: bool|None = None
 
     def run(self):
+        from seedsigner.hardware import hw_profile
+        if hw_profile.is_max_profile():
+            # Seed Max (0031): its own splash, waits for START, language chips. Whatever
+            # goes wrong in it, the boot goes on with SeedSigner's splash.
+            try:
+                self.run_screen(SeedMaxSplashScreen, wait_for_start=seedmax_splash_waits())
+                return
+            except Exception as e:
+                from seedsigner.gui.renderer import Renderer
+                if Renderer.get_instance().is_screenshot_generator:
+                    raise           # the screenshot generator ends each capture with an exception
+                logger.exception(f"Seed Max splash failed, SeedSigner's instead: {e}")
         self.run_screen(
             OpeningSplashScreen,
             force_partner_logos=self.force_partner_logos
         )
+
+
+
+def seedmax_splash_waits() -> bool:
+    """
+    Seed Max (0031): wait for START only when a tap can reach it. Not when the boot-time
+    touch test or calibration is enabled (the panel isn't calibrated yet: they must come
+    first), nor without a working touch controller.
+    """
+    from seedsigner.hardware import hw_profile
+    from seedsigner.hardware.buttons import HardwareButtons
+    if hw_profile.TOUCH_CALIBRATE_AT_BOOT or hw_profile.TOUCH_RAW_TEST_AT_BOOT:
+        return False
+    try:
+        return HardwareButtons.get_instance()._get_touch_device() is not None
+    except Exception:
+        return False
+
+
+
+@dataclass
+class SeedMaxSplashScreen(BaseScreen):
+    """
+    Seed Max (0031): the boot screen. "SEED MAX", what the device is, the guarantee that
+    it signs like SeedSigner, the language chips and START. It stays until START is
+    tapped (`wait_for_start`; otherwise it shows for SHOW_SECONDS and goes on).
+
+    A chip sets the display language for this session only, in memory: unlike
+    Settings > Language the chip itself never saves, even with Persistent Settings on
+    (with it on, a later change in Settings saves everything, the language included). Only the
+    languages whose catalogs are in the image get a chip; with none, no chips at all.
+    """
+    wait_for_start: bool = True
+    SHOW_SECONDS = 2
+
+    def __post_init__(self):
+        super().__post_init__()
+        from seedsigner.gui import seedmax
+        self.sm = seedmax
+        detected = {code for code, _name in SettingsConstants.get_detected_languages()}
+        chips = [c for c in seedmax.LANGUAGE_CHIPS if c == SettingsConstants.LOCALE__ENGLISH or c in detected]
+        self.languages = chips if len(chips) > 1 else []
+        self.start_pressed = False
+        self.fonts = dict(
+            semi=lambda size: Fonts.get_font("OpenSans-SemiBold", size),
+            mono=lambda size: Fonts.get_font("Inconsolata-SemiBold", size),
+            mono_regular=lambda size: Fonts.get_font("Inconsolata-Regular", size),
+        )
+
+
+    @staticmethod
+    def current_locale() -> str:
+        return Settings.get_instance().get_value(SettingsConstants.SETTING__LOCALE)
+
+
+    @property
+    def lang(self) -> str:
+        """ The splash's own texts: the current language if it has them, else English """
+        current = self.current_locale()
+        return current if current in self.sm.STRINGS else SettingsConstants.LOCALE__ENGLISH
+
+
+    def render_image(self):
+        # A chip is lit only if it is the current language (e.g. none with pt_BR)
+        current = self.current_locale()
+        lit = current if current in self.languages else None
+        return self.sm.render_splash(self.lang, self.languages, self.fonts, start_pressed=self.start_pressed,
+                                     lit=lit)
+
+
+    def start_rect(self):
+        from PIL import Image, ImageDraw
+        return self.sm.start_rect(ImageDraw.Draw(Image.new("RGB", (1, 1))), self.sm.text(self.lang, "start"), self.fonts["mono"])
+
+
+    def _render(self):
+        self.canvas.paste(self.render_image(), (0, 0))
+
+
+    def chip_at(self, x: int, y: int):
+        for code, _drawn, (x1, y1, x2, y2) in self.sm.chip_rects(self.languages):
+            if x1 <= x <= x2 and y1 <= y <= y2:
+                return code
+        return None
+
+
+    @staticmethod
+    def set_session_locale(code: str):
+        """
+        The language for this session, in memory only. Settings.set_value() would also
+        save the settings to the microSD when Persistent Settings is on: the chip never
+        does. Same effect otherwise: the value, then the gettext language.
+        """
+        settings = Settings.get_instance()
+        settings._data[SettingsConstants.SETTING__LOCALE] = code
+        settings.load_locale()
+
+
+    def handle_touch(self, event):
+        from seedsigner.hardware.buttons import HardwareButtonsConstants
+        if not event.is_tap:
+            return None
+        x1, y1, x2, y2 = self.start_rect()
+        margin = 6
+        if x1 - margin <= event.x <= x2 + margin and y1 - margin <= event.y <= y2 + margin:
+            self.start_pressed = True
+            with self.renderer.lock:
+                self._render()
+                self.renderer.show_image()
+            return HardwareButtonsConstants.KEY_PRESS
+        code = self.chip_at(event.x, event.y)
+        if code is not None and code != self.current_locale():
+            self.set_session_locale(code)
+            with self.renderer.lock:
+                self._render()
+                self.renderer.show_image()
+        return None
+
+
+    def _run(self):
+        from seedsigner.hardware.buttons import HardwareButtonsConstants
+        if self.renderer.is_screenshot_generator:
+            return
+        if not self.wait_for_start:
+            time.sleep(self.SHOW_SECONDS)
+            return
+        while True:
+            user_input = self.hw_inputs.wait_for(HardwareButtonsConstants.ALL_KEYS)
+            if user_input == HardwareButtonsConstants.KEY_PRESS and self.start_pressed:
+                return
 
 
 

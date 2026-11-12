@@ -755,8 +755,10 @@ def test_qr_display_centered():
     check(sizes and sizes[0] == (320, 320), f"QR rendered at the largest square that fits: {sizes[:1]}")
     check(canvas.getpixel((240, 160)) == (255, 255, 255) and canvas.getpixel((80, 5)) == (255, 255, 255),
           "QR centered: x 80..399")
-    check(canvas.getpixel((40, 40)) == (0, 0, 0) and canvas.getpixel((40, 300)) == (0, 0, 0) and canvas.getpixel((404, 160)) == (0, 0, 0),
-          "the side bars are black around the controls: nothing of the previous screen shows through")
+    from seedsigner.gui.components import GUIConstants
+    bg = tuple(int(GUIConstants.BACKGROUND_COLOR[i:i + 2], 16) for i in (1, 3, 5))     # Seed Max (0031): night blue
+    check(canvas.getpixel((40, 40)) == bg and canvas.getpixel((40, 300)) == bg and canvas.getpixel((404, 160)) == bg,
+          "the side bars are background-coloured around the controls: nothing of the previous screen shows through")
     screenshot("max_qr_display.png")
 
     K = HardwareButtonsConstants
@@ -1353,9 +1355,9 @@ def test_touch_raw_test_screen():
           f"raw dump drawn under the bottom targets, between them ({screen.TEXT_LEFT}..{screen.TEXT_LEFT + raw_width:.0f} px)")
     rects = screen.color_bar_rects()
     colors = [canvas.getpixel((rect[0] + 4, rect[3] - 3)) for rect in rects]
-    accent = tuple(int(GUIConstants.ACCENT_COLOR[i:i + 2], 16) for i in (1, 3, 5))
-    check(colors == [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255), accent, (0, 0, 0)],
-          f"color strip: red, green, blue, white, UI orange, black: {colors}")
+    orange = (255, 159, 10)     # Seed Max (0031): a fixed test colour (SeedSigner's orange), no longer the UI accent
+    check(colors == [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255), orange, (0, 0, 0)],
+          f"color strip: red, green, blue, white, orange, black: {colors}")
     check(canvas.getpixel((rects[5][0], rects[5][1] + 10)) == (255, 255, 255), "the black box has a white border")
     check(rects[0][1] > 40 + 12 and rects[0][3] < screen.FIT_Y and rects[0][0] >= 0 and rects[-1][2] < 480,
           "color strip below the title and the top targets, above the log")

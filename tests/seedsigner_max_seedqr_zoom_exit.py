@@ -110,8 +110,9 @@ def drawn_label_box(screen):
         if isinstance(GUIConstants.BACKGROUND_COLOR, str) else tuple(GUIConstants.BACKGROUND_COLOR[:3])
     box = [(x, y) for y in range(h * 3 // 4, h) for x in range(w // 4, w * 3 // 4)
            if px[x, y][3] == 255 and px[x, y][:3] == bg]
+    # Seed Max (0031): the label text is near-white; the cyan accent (sum > 450) is not text
     text = [(x, y) for y in range(h * 3 // 4, h) for x in range(w // 4, w * 3 // 4)
-            if px[x, y][3] == 255 and sum(px[x, y][:3]) > 3 * 150]
+            if px[x, y][3] == 255 and min(px[x, y][:3]) > 150]
     def bbox(points):
         xs = [p[0] for p in points]
         ys = [p[1] for p in points]

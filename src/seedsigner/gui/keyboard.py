@@ -126,10 +126,10 @@ class Keyboard:
                     font = self.keyboard.icon_key_font
                     text_height = self.keyboard.icon_key_height
 
-            outline_color = "#333"
+            outline_color = GUIConstants.BUTTON_OUTLINE_COLOR     # Seed Max (0031): was "#333"
             if not self.is_active:
                 rect_color = self.keyboard.deactivated_background_color
-                font_color = "#333"  # Show the letter but render as gray
+                font_color = GUIConstants.INACTIVE_COLOR  # Show the letter but render as gray (Seed Max (0031): was "#333")
                 outline_color = self.keyboard.deactivated_background_color
 
                 if self.is_selected:
@@ -140,7 +140,7 @@ class Keyboard:
                 font_color = "black"
             else:
                 if self.is_additional_key:
-                    rect_color = "#000"
+                    rect_color = GUIConstants.BACKGROUND_COLOR    # Seed Max (0031): was "#000"
                     font_color = "#999"
                 else:
                     rect_color = self.keyboard.background_color
@@ -304,7 +304,7 @@ class Keyboard:
             Does NOT call self.renderer.show_image to avoid multiple calls on the same screen.
         """
         # Start with a clear screen
-        self.draw.rectangle(self.rect, outline=0, fill=0)
+        self.draw.rectangle(self.rect, outline=GUIConstants.BACKGROUND_COLOR, fill=GUIConstants.BACKGROUND_COLOR)     # Seed Max (0031): was black
 
         for i, row_keys in enumerate(self.keys):
             for j, key in enumerate(row_keys):
@@ -590,7 +590,7 @@ class TextEntryDisplay(TextEntryDisplayConstants):
             self.cur_text = cur_text
 
         # Start by rendering to a new Image that we'll composite in at the end
-        image = Image.new("RGB", (self.width + 1, self.height + 1), "black")
+        image = Image.new("RGB", (self.width + 1, self.height + 1), GUIConstants.BACKGROUND_COLOR)
         draw = ImageDraw.Draw(image)
 
         draw.rounded_rectangle((0, 0, self.width, self.height), fill=self.background_color, radius=4)
@@ -748,7 +748,7 @@ class MultiLineTextEntryDisplay(TextEntryDisplay):
         last_needed = max(len(lines), cursor_line + 1)
         self.first_line = max(0, min(self.first_line, last_needed - self.num_lines))
 
-        image = Image.new("RGB", (self.width + 1, self.height + 1), "black")
+        image = Image.new("RGB", (self.width + 1, self.height + 1), GUIConstants.BACKGROUND_COLOR)
         draw = ImageDraw.Draw(image)
         draw.rounded_rectangle((0, 0, self.width, self.height), fill=self.background_color, radius=4)
 

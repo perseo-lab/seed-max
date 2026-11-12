@@ -29,9 +29,15 @@ class GUIConstants:
     COMPONENT_PADDING = 8
     LIST_ITEM_PADDING = 4
 
-    BACKGROUND_COLOR = "#000000"
-    INACTIVE_COLOR = "#414141"
-    ACCENT_COLOR = "#FF9F0A" # Active Color
+    # Seed Max (0031): night blue and cyan, like the Anti-Klepto Check SD. The semantic
+    # colors below (warning, error, success, info) stay SeedSigner's: a warning must look
+    # like a warning.
+    BACKGROUND_COLOR = "#0A0E30"
+    INACTIVE_COLOR = "#3A4372"
+    ACCENT_COLOR = "#45E6D6" # Active Color
+    ACCENT_LIGHT_COLOR = "#BEFFF8"
+    MAINNET_COLOR = "#FF9F0A"   # Seed Max (0031): the mainnet bitcoin icon stays orange (regtest is cyan)
+    HOLD_BAR_COLOR = "#0A0E30"  # Seed Max (0031): the hold-to-confirm bar, on the selected (cyan) button
     WARNING_COLOR = "#FFD60A"
     DIRE_WARNING_COLOR = "#FF5700"
     ERROR_COLOR = "#FF1B0A"
@@ -91,7 +97,7 @@ class GUIConstants:
 
     # TODO: this should have a get_label_font_size() method like the others for l10n
     LABEL_FONT_SIZE = BODY_FONT_MIN_SIZE
-    LABEL_FONT_COLOR = "#777777"
+    LABEL_FONT_COLOR = "#8C97C8"     # Seed Max (0031): readable on night blue
 
     BUTTON_FONT_NAME = BASE_LOCALE_FONTS.copy()
     BUTTON_FONT_NAME["default"] = "OpenSans-SemiBold"
@@ -105,7 +111,9 @@ class GUIConstants:
         SettingsConstants.LOCALE__CHINESE_SIMPLIFIED: 20,
     }
     BUTTON_FONT_COLOR = "#FCFCFC"
-    BUTTON_BACKGROUND_COLOR = "#2C2C2C"
+    BUTTON_BACKGROUND_COLOR = "#16205A"   # Seed Max (0031): glass blue
+    BUTTON_OUTLINE_COLOR = "#2C4BB0"      # Seed Max (0031): every button has an edge
+    TOP_NAV_LINE_COLOR = "#45E6D6"        # Seed Max (0031): the horizon line under the top nav
     BUTTON_HEIGHT = 32
     if hw_profile.is_max_profile():
         # SeedSigner Max: bigger touch targets on the 4.0" panel (see hw_profile.py)
@@ -1116,7 +1124,7 @@ class BtcAmount(BaseComponent):
         if network == SettingsConstants.MAINNET:
             btc_unit = _("btc")
             sats_unit = _("sats")
-            btc_color = GUIConstants.ACCENT_COLOR
+            btc_color = GUIConstants.MAINNET_COLOR      # Seed Max (0031): was ACCENT_COLOR
 
         elif network == SettingsConstants.TESTNET:
             btc_color = GUIConstants.TESTNET_COLOR
@@ -1367,7 +1375,7 @@ class Button(BaseComponent):
 
     font_color: str = GUIConstants.BUTTON_FONT_COLOR
     selected_font_color: str = GUIConstants.BUTTON_SELECTED_FONT_COLOR
-    outline_color: str = None
+    outline_color: str = GUIConstants.BUTTON_OUTLINE_COLOR    # Seed Max (0031): was None
     selected_outline_color: str = None
     is_text_centered: bool = True
     is_selected: bool = False
@@ -1607,6 +1615,21 @@ class Button(BaseComponent):
             icon.screen_x = self.screen_x + self.right_icon_x
             icon.render()
 
+        if outline_color:
+            # Seed Max (0031): the label's background box is drawn after the outline and
+            # covers it at the label's height; draw the edge again on top
+            self.image_draw.rounded_rectangle(
+                (
+                    self.screen_x,
+                    self.screen_y - self.scroll_y,
+                    self.screen_x + self.width,
+                    self.screen_y + self.height - self.scroll_y
+                ),
+                radius=8,
+                outline=outline_color,
+                width=2,
+            )
+
 
 
 @dataclass
@@ -1686,6 +1709,7 @@ class TopNav(BaseComponent):
     show_back_button: bool = True
     show_power_button: bool = False
     is_selected: bool = False
+    brand: bool = False     # Seed Max (0031): the "SEED MAX" wordmark instead of the title
 
 
     def __post_init__(self):
@@ -1768,8 +1792,30 @@ class TopNav(BaseComponent):
             return RET_CODE__POWER_BUTTON
 
 
+    # Seed Max (0031): wordmark height and position on the Home top nav
+    BRAND_HEIGHT = 18
+
+    def brand_box(self) -> tuple[int, int, int, int]:
+        from seedsigner.gui.seedmax import wordmark
+        mark = wordmark(self.BRAND_HEIGHT)
+        x = GUIConstants.EDGE_PADDING
+        if self.show_back_button:
+            x = self.left_button.screen_x + self.left_button.width + GUIConstants.COMPONENT_PADDING
+        y = int((self.height - mark.height) / 2)
+        return (x, y, x + mark.width, y + mark.height)
+
+
     def render(self):
-        self.title.render()
+        if self.brand:
+            from seedsigner.gui.seedmax import wordmark
+            x1, y1, x2, y2 = self.brand_box()
+            self.image_draw.rectangle((0, 0, self.width, self.height - 1), fill=self.background_color)
+            mark = wordmark(self.BRAND_HEIGHT)
+            self.canvas.paste(mark, (x1, y1), mark)       # the top nav is always at (0, 0)
+        else:
+            self.title.render()
+        # Seed Max (0031): a thin cyan horizon under every top nav
+        self.image_draw.line((0, self.height - 1, self.width, self.height - 1), fill=GUIConstants.TOP_NAV_LINE_COLOR, width=1)
         self.render_buttons()
         self.render_battery()
     
@@ -1803,6 +1849,8 @@ class TopNav(BaseComponent):
         title_right = int(self.width / 2 + title_font.getlength(self.text) / 2)
         if self.icon_name:
             title_right += GUIConstants.ICON_FONT_SIZE + 4 + GUIConstants.COMPONENT_PADDING
+        if self.brand:
+            title_right = self.brand_box()[2]           # Seed Max (0031)
         text_x = icon_x - 4 - text_w
         if title_right + 6 <= text_x:
             return (text_x, icon_x)

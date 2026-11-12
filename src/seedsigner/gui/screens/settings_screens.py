@@ -200,7 +200,7 @@ class IOTestScreen(BaseTopNavScreen):
                             -1, int((self.canvas_height - msg_height)/ 2) - 1,
                             self.canvas_width + 1, int((self.canvas_height + msg_height)/ 2) + 1
                         ),
-                        fill="black",
+                        fill=GUIConstants.BACKGROUND_COLOR,
                         outline=GUIConstants.ACCENT_COLOR,
                         width=1,
                     )
@@ -559,7 +559,7 @@ class TouchRawTestScreen(BaseScreen):
     least-squares fit of the five raw points to the five targets and its worst error.
     Uses raw readings only, so it works with any calibration, even a wildly wrong one.
 
-    A strip of color bars (red, green, blue, white, the UI orange, black) under the
+    A strip of color bars (red, green, blue, white, orange #FF9F0A, black) under the
     title checks the display's colors at the same time.
 
     Ends on a press after the fifth one, or when nobody touches the screen for
@@ -612,7 +612,7 @@ class TouchRawTestScreen(BaseScreen):
             ("GREEN", (0, 255, 0), "black", None),
             ("BLUE", (0, 0, 255), "white", None),
             ("WHITE", (255, 255, 255), "black", None),
-            ("ORANGE", GUIConstants.ACCENT_COLOR, "black", None),
+            ("ORANGE", "#FF9F0A", "black", None),    # Seed Max (0031): a fixed test colour, not the accent
             ("BLACK", (0, 0, 0), "white", (255, 255, 255)),
         ]
 

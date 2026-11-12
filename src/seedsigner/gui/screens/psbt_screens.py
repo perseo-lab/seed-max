@@ -518,7 +518,7 @@ class PSBTMathScreen(ButtonListScreen):
         body_width = self.canvas_width - 2*GUIConstants.EDGE_PADDING
         body_height = self.buttons[0].screen_y - self.top_nav.height - 2*GUIConstants.COMPONENT_PADDING
         ssf = 2  # Super-sampling factor
-        image = Image.new("RGB", (body_width*ssf, body_height*ssf))
+        image = Image.new("RGB", (body_width*ssf, body_height*ssf), GUIConstants.BACKGROUND_COLOR)     # Seed Max (0031): was black
         draw = ImageDraw.Draw(image)
 
         body_font = Fonts.get_font(GUIConstants.get_body_font_name(), (GUIConstants.get_body_font_size())*ssf)
@@ -530,8 +530,8 @@ class PSBTMathScreen(ButtonListScreen):
         cur_y = 0
 
         def render_amount(cur_y, amount_str, info_text, info_text_color=GUIConstants.BODY_FONT_COLOR):
-            secondary_digit_color = "#888"
-            tertiary_digit_color = "#666"
+            secondary_digit_color = "#9AA3C8"     # Seed Max (0031): was #888, on night blue
+            tertiary_digit_color = "#7A84B0"      # Seed Max (0031): was #666
             digit_group_spacing = 2 * ssf
             # secondary_digit_color = GUIConstants.BODY_FONT_COLOR
             # tertiary_digit_color = GUIConstants.BODY_FONT_COLOR
@@ -584,7 +584,7 @@ class PSBTMathScreen(ButtonListScreen):
             f" {self.change_amount}",
             # TRANSLATOR_NOTE: Denonination is inserted (e.g. your "btc change" or "sats change")
             info_text=_("{} change").format(denomination),
-            info_text_color="darkorange"  # super-sampling alters the perceived color
+            info_text_color=GUIConstants.ACCENT_COLOR  # Seed Max (0031): was "darkorange" (super-sampling alters the perceived color)
         )
 
         # Resize to target and sharpen final image

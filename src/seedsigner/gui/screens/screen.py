@@ -112,7 +112,7 @@ class BaseScreen(BaseComponent):
         # Clear the whole canvas
         self.image_draw.rectangle(
             (0, 0, self.canvas_width, self.canvas_height),
-            fill=0,
+            fill=GUIConstants.BACKGROUND_COLOR,     # Seed Max (0031): was black
         )
 
 
@@ -180,8 +180,8 @@ class LoadingScreenThread(BaseThread):
         )
         position = 0
         arc_sweep = 45
-        arc_color = "#ff9416"
-        arc_trailing_color = "#80490b"
+        arc_color = GUIConstants.ACCENT_COLOR    # Seed Max (0031): was SeedSigner orange
+        arc_trailing_color = "#1E6E78"
 
         # Need to flush the screen
         with renderer.lock:
@@ -237,6 +237,7 @@ class BaseTopNavScreen(BaseScreen):
     title_font_size: int = GUIConstants.get_top_nav_title_font_size()
     show_back_button: bool = True
     show_power_button: bool = False
+    top_nav_brand: bool = False     # Seed Max (0031): "SEED MAX" instead of the title
 
     def __post_init__(self):
         super().__post_init__()
@@ -249,6 +250,7 @@ class BaseTopNavScreen(BaseScreen):
             height=GUIConstants.TOP_NAV_HEIGHT,
             show_back_button=self.show_back_button,
             show_power_button=self.show_power_button,
+            brand=self.top_nav_brand,
         )
         self.is_input_in_top_nav = False
 
@@ -446,13 +448,13 @@ class ButtonListScreen(BaseTopNavScreen):
 
         if self.has_scroll_arrows:
             self.arrow_half_width = 10
-            self.up_arrow_img = Image.new("RGBA", size=(2 * self.arrow_half_width, 8), color="black")
+            self.up_arrow_img = Image.new("RGBA", size=(2 * self.arrow_half_width, 8), color=GUIConstants.BACKGROUND_COLOR)
             self.up_arrow_img_y = self.top_nav.height - 12
             arrow_draw = ImageDraw.Draw(self.up_arrow_img)
             arrow_draw.line((self.arrow_half_width, 1, 0, 7), fill=GUIConstants.BUTTON_FONT_COLOR)
             arrow_draw.line((self.arrow_half_width, 1, 2 * self.arrow_half_width, 7), fill=GUIConstants.BUTTON_FONT_COLOR)
 
-            self.down_arrow_img = Image.new("RGBA", size=(2 * self.arrow_half_width, 8), color="black")
+            self.down_arrow_img = Image.new("RGBA", size=(2 * self.arrow_half_width, 8), color=GUIConstants.BACKGROUND_COLOR)
             self.down_arrow_img_y = self.canvas_height - 16 + 2
             arrow_draw = ImageDraw.Draw(self.down_arrow_img)
             center_x = int(self.canvas_width / 2)
@@ -515,7 +517,7 @@ class ButtonListScreen(BaseTopNavScreen):
                 int(self.canvas_width / 2) - self.arrow_half_width, self.up_arrow_img_y,
                 int(self.canvas_width / 2) + self.arrow_half_width, self.up_arrow_img_y + self.up_arrow_img.height
             ),
-            fill="black"
+            fill=GUIConstants.BACKGROUND_COLOR
         )
 
     def _hide_down_arrow(self):
@@ -524,7 +526,7 @@ class ButtonListScreen(BaseTopNavScreen):
                 int(self.canvas_width / 2) - self.arrow_half_width, self.down_arrow_img_y,
                 int(self.canvas_width / 2) + self.arrow_half_width, self.down_arrow_img_y + self.down_arrow_img.height
             ),
-            fill="black"
+            fill=GUIConstants.BACKGROUND_COLOR
         )
 
 
@@ -607,12 +609,13 @@ class ButtonListScreen(BaseTopNavScreen):
             button.render()
             x1, y1, x2, y2 = component_rect(button)
             if progress is not None:
-                # Green, to stand out on the orange of the selected button
+                # Seed Max (0031): night blue on the cyan of the selected button (was green
+                # on orange; green on cyan is hard to see)
                 bar_height = 6
                 self.image_draw.rounded_rectangle(
                     (x1, y2 - bar_height, x1 + max(int((x2 - x1) * progress), 2 * bar_height), y2),
                     radius=3,
-                    fill=GUIConstants.SUCCESS_COLOR,
+                    fill=GUIConstants.HOLD_BAR_COLOR,
                 )
             # Only the button's rows (0027): the touch panel isn't read while they're sent
             self.renderer.show_rows(y1, y2)
@@ -828,6 +831,8 @@ class LargeButtonScreen(BaseTopNavScreen):
 
     button_selected_color: str = GUIConstants.ACCENT_COLOR
     selected_button: int = 0
+    # Seed Max (0031): Home style, icon left of the label (default: SeedSigner's icon above)
+    button_icons_inline: bool = False
 
     def __post_init__(self):
         if not self.button_font_name:
@@ -885,7 +890,17 @@ class LargeButtonScreen(BaseTopNavScreen):
                 "font_size": self.button_font_size,
                 "selected_color": self.button_selected_color,
             }
-            if icon_name:
+            if icon_name and self.button_icons_inline:
+                # Seed Max (0031): icon and label side by side, cyan edge, light-cyan icon
+                button_args.update(
+                    icon_name=icon_name,
+                    is_icon_inline=True,
+                    icon_size=GUIConstants.ICON_LARGE_BUTTON_SIZE - 4,
+                    icon_color=GUIConstants.ACCENT_LIGHT_COLOR,
+                    outline_color=GUIConstants.ACCENT_COLOR,
+                )
+                button = Button(**button_args)
+            elif icon_name:
                 button_args["icon_name"] = icon_name
                 button_args["text_y_offset"] = int(48 / 240 * self.renderer.canvas_height) + GUIConstants.COMPONENT_PADDING
                 button = LargeIconButton(**button_args)
@@ -1807,3 +1822,6 @@ class MainMenuScreen(LargeButtonScreen):
     title_font_size: int = 26
     show_back_button: bool = False
     show_power_button: bool = True
+    top_nav_brand: bool = True              # Seed Max (0031): "SEED MAX" in place of "Home"
+    button_icons_inline: bool = True        # Seed Max (0031): Home variant A
+    button_font_size: int = 24

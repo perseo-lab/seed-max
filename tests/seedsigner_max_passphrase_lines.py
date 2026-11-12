@@ -38,6 +38,7 @@ class TestRenderer(Renderer):
 TestRenderer.configure_instance()
 Renderer.get_instance = classmethod(lambda cls: TestRenderer._instance)
 
+from seedsigner.gui.components import GUIConstants
 from seedsigner.gui.keyboard import Keyboard, MultiLineTextEntryDisplay, TextEntryDisplay
 from seedsigner.gui.screens.screen import component_rect
 from seedsigner.gui.screens.seed_screens import SeedAddPassphraseScreen
@@ -125,7 +126,8 @@ def lit_pixels(rect, color_test):
 
 
 def is_orange(p):
-    return p[0] > 200 and 100 < p[1] < 200 and p[2] < 80
+    """ Seed Max (0031): the typed text is the UI accent, now cyan (69, 230, 214), on glass blue """
+    return p[1] > 150 and p[1] - p[0] > 60 and p[2] > 120
 
 
 def is_grey_dot(p):
@@ -213,6 +215,10 @@ def test_prefilled_passphrase():
 ALL_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + """!@#$%&();:,.-+='"?""" + """^*[]{}_\\|<>/`~""" + " "
 
 
+# Seed Max (0031): the field's background, was SeedSigner's (44, 44, 44)
+FIELD_BG = tuple(int(GUIConstants.BUTTON_BACKGROUND_COLOR[i:i + 2], 16) for i in (1, 3, 5))
+
+
 class FieldDecoder:
     """
     Reads the passphrase field back from the canvas, pixel by pixel, with glyph
@@ -225,7 +231,7 @@ class FieldDecoder:
         self.sigs = {}
         cw, asc = display.char_width, display.ascent
         for ch in ALL_CHARS:
-            img = Image.new("RGB", (cw * 3, self.cell_h), (44, 44, 44))
+            img = Image.new("RGB", (cw * 3, self.cell_h), FIELD_BG)
             glyph = display.SPACE_MARK if ch == " " else ch
             ImageDraw.Draw(img).text((cw, asc + 2), glyph, fill=(display.space_color if ch == " " else display.accent_color),
                                      font=display.font, anchor="ls")
@@ -234,7 +240,7 @@ class FieldDecoder:
 
     @staticmethod
     def sig(img):
-        return tuple(1 if (p != (204, 204, 204) and abs(p[0] - 44) + abs(p[1] - 44) + abs(p[2] - 44) > 90) else 0
+        return tuple(1 if (p != (204, 204, 204) and sum(abs(p[i] - FIELD_BG[i]) for i in range(3)) > 90) else 0
                      for p in img.convert("RGB").getdata())
 
     def read(self):
