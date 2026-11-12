@@ -474,10 +474,11 @@ class DonateView(View):
     def run(self):
         from seedsigner.hardware import hw_profile
         if hw_profile.is_max_profile():
-            # Seed Max (0032): the BOLT12 offer of the project, on the next screen
+            # Seed Max (0032, 0035): the project's BOLT12 offer or Silent Payments address,
+            # on the next screen
             selected = self.run_screen(settings_screens.SeedMaxDonateScreen)
-            if selected == 0:
-                return Destination(SeedMaxDonateQRView)
+            if selected in (0, 1):
+                return Destination(SeedMaxDonateQRView, view_args=dict(kind=("ln", "sp")[selected]))
             return Destination(SettingsMenuView)
 
         self.run_screen(settings_screens.DonateScreen)
@@ -487,11 +488,18 @@ class DonateView(View):
 
 
 class SeedMaxDonateQRView(View):
-    """ Seed Max (0032): the donation QR, full size (the screen used for the xpub) """
+    """
+    Seed Max (0032, 0035): the donation QR, full size (the screen used for the xpub):
+    `kind` "ln" = the BOLT12 offer, "sp" = the Silent Payments address
+    """
+    def __init__(self, kind: str = "ln"):
+        super().__init__()
+        self.kind = kind if kind in ("ln", "sp") else "ln"
+
     def run(self):
         from seedsigner.gui import seedmax
         from seedsigner.gui.screens.screen import QRDisplayScreen
         from seedsigner.models.encode_qr import GenericStaticQrEncoder
 
-        self.run_screen(QRDisplayScreen, qr_encoder=GenericStaticQrEncoder(data=seedmax.DONATION_BOLT12))
+        self.run_screen(QRDisplayScreen, qr_encoder=GenericStaticQrEncoder(data=seedmax.DONATIONS[self.kind]))
         return Destination(DonateView, skip_current_view=True)

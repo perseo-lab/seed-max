@@ -135,7 +135,7 @@ STRINGS = {
 
 
 # ---------------------------------------------------------------------------------------
-# Donations (0032, Ollen's choice of 12 Nov 2026): Lightning only, a BOLT12 offer. It has
+# Donations (0032, Ollen's choice of 12 Nov 2026): Lightning, a BOLT12 offer. It has
 # no amount (the donor chooses), no description and no node id: one blinded path whose
 # introduction node is ACINQ's (Phoenix). Reusable forever, nothing on-chain reused.
 # Payable by BOLT12 wallets (Phoenix, Zeus, Core Lightning...), not by Sparrow (on-chain).
@@ -148,18 +148,35 @@ DONATION_BOLT12 = (
     "um7w780vh36qqsnus40074hc0y64ksea2xvfwsgq"
 )
 
+# 0035 (Ollen, 12 Nov 2026): also on-chain, to a Silent Payments address (BIP-352). One
+# static address, yet every payment lands on a fresh taproot output only the owner can
+# find: nothing is reused on-chain and the address reveals no balance. Version 0, 116
+# characters: scan key (02...) and spend key (03...). Payable by wallets that SEND to sp1
+# addresses (Sparrow 2.3+, Cake Wallet, BlueWallet, Wasabi, Nunchuk...). tests/seedmax_identity.py
+# checks the bech32m checksum, the two keys and the QR.
+DONATION_SILENT_PAYMENT = (
+    "sp1qqt75n5wr03rpt33xutl40cnf8z9ahg2gmcl3nn5trxq5ff5jjcvf7qlg94hvwzx527zy5tl654vsv5k3dxa7rz97me3ku9w249zsev5ujycl3kaf"
+)
+
 DONATE_STRINGS = {
-    "en": dict(free="Seed Max is free and open source.", how="Support it with Lightning (BOLT12):",
-               wallets="scan with Phoenix, Zeus or another BOLT12 wallet", show="Show QR"),
-    "it": dict(free="Seed Max è libero e open source.", how="Sostienilo con Lightning (BOLT12):",
-               wallets="inquadra con Phoenix, Zeus o un altro wallet BOLT12", show="Mostra QR"),
-    "fr": dict(free="Seed Max est libre et open source.", how="Soutenez-le avec Lightning (BOLT12) :",
-               wallets="scannez avec Phoenix, Zeus ou un autre wallet BOLT12", show="Afficher le QR"),
-    "es": dict(free="Seed Max es libre y de código abierto.", how="Apóyalo con Lightning (BOLT12):",
-               wallets="escanea con Phoenix, Zeus u otra wallet BOLT12", show="Mostrar QR"),
-    "de": dict(free="Seed Max ist frei und Open Source.", how="Unterstütze es mit Lightning (BOLT12):",
-               wallets="mit Phoenix, Zeus oder einer anderen BOLT12-Wallet scannen", show="QR zeigen"),
+    "en": dict(free="Seed Max is free and open source.", how="Support it with:",
+               ln="Lightning (BOLT12)", sp="On-chain · Silent Payments",
+               wallets="LN: Phoenix, Zeus · on-chain: Sparrow 2.3+, Cake, BlueWallet"),
+    "it": dict(free="Seed Max è libero e open source.", how="Sostienilo con:",
+               ln="Lightning (BOLT12)", sp="On-chain · Silent Payments",
+               wallets="LN: Phoenix, Zeus · on-chain: Sparrow 2.3+, Cake, BlueWallet"),
+    "fr": dict(free="Seed Max est libre et open source.", how="Soutenez-le avec :",
+               ln="Lightning (BOLT12)", sp="On-chain · Silent Payments",
+               wallets="LN : Phoenix, Zeus · on-chain : Sparrow 2.3+, Cake, BlueWallet"),
+    "es": dict(free="Seed Max es libre y de código abierto.", how="Apóyalo con:",
+               ln="Lightning (BOLT12)", sp="On-chain · Silent Payments",
+               wallets="LN: Phoenix, Zeus · on-chain: Sparrow 2.3+, Cake, BlueWallet"),
+    "de": dict(free="Seed Max ist frei und Open Source.", how="Unterstütze es mit:",
+               ln="Lightning (BOLT12)", sp="On-chain · Silent Payments",
+               wallets="LN: Phoenix, Zeus · On-chain: Sparrow 2.3+, Cake, BlueWallet"),
 }
+
+DONATIONS = {"ln": DONATION_BOLT12, "sp": DONATION_SILENT_PAYMENT}
 
 
 # 0034: word entry (AKC keyboard) and the review of all the words

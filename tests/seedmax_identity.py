@@ -418,8 +418,52 @@ def test_persistent_settings_removed():
     set_locale("en")
 
 
+def bech32m_decode(address):
+    """ (hrp, 5-bit data without checksum) if the bech32m checksum is right, else None """
+    charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+    if address.lower() != address or "1" not in address:
+        return None
+    hrp, data = address.rsplit("1", 1)
+    if any(c not in charset for c in data):
+        return None
+    values = [charset.index(c) for c in data]
+    chk = 1
+    for v in [ord(x) >> 5 for x in hrp] + [0] + [ord(x) & 31 for x in hrp] + values:
+        top = chk >> 25
+        chk = (chk & 0x1ffffff) << 5 ^ v
+        for i, g in enumerate((0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3)):
+            chk ^= g if (top >> i) & 1 else 0
+    return (hrp, values[:-6]) if chk == 0x2bc830a3 else None
+
+
+def test_silent_payment_address():
+    """ 0035: the on-chain donation address is a well-formed BIP-352 v0 address """
+    from embit.ec import PublicKey
+    address = seedmax.DONATION_SILENT_PAYMENT
+    decoded = bech32m_decode(address)
+    check(decoded is not None and decoded[0] == "sp", "sp1 address, bech32m checksum right")
+    version, bits = decoded[1][0], decoded[1][1:]
+    acc = n = 0
+    payload = []
+    for v in bits:
+        acc, n = (acc << 5) | v, n + 5
+        while n >= 8:
+            n -= 8
+            payload.append((acc >> n) & 255)
+    payload = bytes(payload)
+    check(version == 0 and len(address) == 116 and len(payload) == 66, f"version 0, 116 chars, 66 bytes ({len(payload)})")
+    try:
+        scan, spend = PublicKey.parse(payload[:33]), PublicKey.parse(payload[33:])
+        keys_ok = scan.sec() == payload[:33] and spend.sec() == payload[33:]
+    except Exception:
+        keys_ok = False
+    check(keys_ok, "scan and spend keys are valid points")
+    flipped = address[:-2] + ("q" if address[-2] != "q" else "p") + address[-1]
+    check(bech32m_decode(flipped) is None, "one character changed: checksum wrong (the check works)")
+
+
 def test_donation():
-    """ 0032: the Donate screen, then the BOLT12 offer as a QR that decodes to the exact string """
+    """ 0032, 0035: the Donate screen with two choices, each QR decoding to its exact string """
     from pyzbar.pyzbar import decode
     from seedsigner.gui.screens.settings_screens import SeedMaxDonateScreen
     from seedsigner.models.encode_qr import GenericStaticQrEncoder
@@ -433,23 +477,29 @@ def test_donation():
             s._render()
         texts = [c for c in s.components if c.__class__.__name__ == "TextArea"]
         bottom = max(t.screen_y + t.height for t in texts)
-        check(bottom < component_rect(s.buttons[0])[1], f"{lang}: texts above the button")
-        check(s.buttons[0].text == seedmax.donate_text(lang, "show"), f"{lang}: button {s.buttons[0].text!r}")
+        check(bottom < component_rect(s.buttons[0])[1], f"{lang}: texts above the buttons")
+        check([b.text for b in s.buttons] == [seedmax.donate_text(lang, "ln"), seedmax.donate_text(lang, "sp")],
+              f"{lang}: two buttons {[b.text for b in s.buttons]}")
+        check(component_rect(s.buttons[1])[3] <= 320, f"{lang}: both buttons on screen")
     set_locale("en")
-    seen = {}
-    view = SeedMaxDonateQRView()
-    view.run_screen = lambda cls, **kw: seen.update(cls=cls.__name__, **kw)
-    dest = view.run()
-    enc = seen.get("qr_encoder")
-    check(seen.get("cls") == "QRDisplayScreen" and isinstance(enc, GenericStaticQrEncoder) and enc.data == offer,
-          "Show QR: the full-size QR screen with the offer")
-    check(dest.View_cls is DonateView, "Done: back to Donate")
-    img = GenericStaticQrEncoder(data=offer).next_part_image(320, 320, border=3, background_color="ffffff")
-    found = [r.data.decode() for r in decode(img.convert("L"))]
-    check(found == [offer], f"the 320 px QR decodes to the exact offer ({len(found)} code)")
+    for kind, data in (("ln", offer), ("sp", seedmax.DONATION_SILENT_PAYMENT)):
+        seen = {}
+        view = SeedMaxDonateQRView(kind=kind)
+        view.run_screen = lambda cls, **kw: seen.update(cls=cls.__name__, **kw)
+        dest = view.run()
+        enc = seen.get("qr_encoder")
+        check(seen.get("cls") == "QRDisplayScreen" and isinstance(enc, GenericStaticQrEncoder) and enc.data == data,
+              f"{kind}: the full-size QR screen with its string")
+        check(dest.View_cls is DonateView, f"{kind}: Done goes back to Donate")
+        img = GenericStaticQrEncoder(data=data).next_part_image(320, 320, border=3, background_color="ffffff")
+        found = [r.data.decode() for r in decode(img.convert("L"))]
+        check(found == [data], f"{kind}: the 320 px QR decodes to the exact string ({len(found)} code)")
+    check(SeedMaxDonateQRView(kind="other").kind == "ln", "an unknown kind falls back to Lightning")
     v = DonateView()
-    v.run_screen = lambda cls, **kw: 0
-    check(v.run().View_cls is SeedMaxDonateQRView, "Donate > Show QR opens the QR")
+    for selected, kind in ((0, "ln"), (1, "sp")):
+        v.run_screen = lambda cls, **kw: selected
+        dest = v.run()
+        check(dest.View_cls is SeedMaxDonateQRView and dest.view_args == {"kind": kind}, f"Donate > button {selected}: {kind} QR")
     v.run_screen = lambda cls, **kw: -1
     check(v.run().View_cls.__name__ == "SettingsMenuView", "Donate > back: Settings")
 
