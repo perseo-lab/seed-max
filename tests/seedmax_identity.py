@@ -666,6 +666,124 @@ def test_word_screens_render():
         check(len(seedmax.word_text(lang, "title", n=24, m=24)) <= 22, f"{lang}: title short enough for the top nav")
 
 
+def test_settings_fixed_on_the_max():
+    """ 0036: the settings Ollen fixed: not in any menu, and nothing moves them """
+    from seedsigner.models import settings_definition as sd
+    from seedsigner.models.settings_definition import SettingsDefinition
+    from seedsigner.views.settings_views import SettingsMenuView
+    C = SettingsConstants
+    locked = sd.SEEDMAX_LOCKED_SETTINGS
+    expected = {C.SETTING__XPUB_QR_FORMAT: [C.XPUB_QR_FORMAT__UR_CRYPTO_ACCOUNT if hasattr(C, "XPUB_QR_FORMAT__UR_CRYPTO_ACCOUNT") else "urca", "sta"],
+                C.SETTING__XPUB_DETAILS: C.OPTION__ENABLED, C.SETTING__PASSPHRASE: C.OPTION__ENABLED,
+                C.SETTING__MICROSD_TOAST_TIMER: C.MICROSD_TOAST_TIMER_DISABLED, C.SETTING__MESSAGE_SIGNING: C.OPTION__DISABLED,
+                C.SETTING__PARTNER_LOGOS: C.OPTION__DISABLED, C.SETTING__PRIVACY_WARNINGS: C.OPTION__ENABLED,
+                C.SETTING__DIRE_WARNINGS: C.OPTION__ENABLED, C.SETTING__QR_BRIGHTNESS_TIPS: C.OPTION__ENABLED,
+                C.SETTING__CAMERA_ROTATION: hw_profile.CAMERA_ROTATION, C.SETTING__DISPLAY_COLOR_INVERTED: C.OPTION__DISABLED}
+    for attr, value in expected.items():
+        check(locked.get(attr) == value, f"{attr} fixed at {value!r} ({locked.get(attr)!r})")
+    for attr in (C.SETTING__DISPLAY_CONFIGURATION, C.SETTING__MAX_CAMERA_RESOLUTION, C.SETTING__MAX_DISPLAY_SPI_MHZ):
+        check(attr in locked, f"{attr} fixed at the build's value ({locked.get(attr)!r})")
+    zoom = SettingsDefinition.get_settings_entry(C.SETTING__MAX_CAMERA_ZOOM)
+    check(C.SETTING__MAX_CAMERA_ZOOM not in locked and zoom.visibility == C.VISIBILITY__HIDDEN,
+          "camera zoom: not in the menus, but the scan screen's zoom button still changes it")
+    Settings.get_instance().set_value(C.SETTING__MAX_CAMERA_ZOOM, 2)
+    check(Settings.get_instance().get_value(C.SETTING__MAX_CAMERA_ZOOM) == 2, "... and set_value keeps it")
+    Settings.get_instance().set_value(C.SETTING__MAX_CAMERA_ZOOM, zoom.default_value)
+    for attr in locked:
+        check(SettingsDefinition.get_settings_entry(attr).visibility == C.VISIBILITY__HIDDEN, f"{attr}: in no menu")
+    settings = Settings.get_instance()
+    flips = {C.SETTING__MESSAGE_SIGNING: C.OPTION__ENABLED, C.SETTING__PRIVACY_WARNINGS: C.OPTION__DISABLED,
+             C.SETTING__DIRE_WARNINGS: C.OPTION__DISABLED, C.SETTING__XPUB_QR_FORMAT: ["spl"],
+             C.SETTING__CAMERA_ROTATION: 0, C.SETTING__MICROSD_TOAST_TIMER: C.MICROSD_TOAST_TIMER_FOREVER,
+             C.SETTING__PASSPHRASE: C.OPTION__REQUIRED, C.SETTING__DISPLAY_COLOR_INVERTED: C.OPTION__ENABLED}
+    for attr, value in flips.items():
+        settings.set_value(attr, value)
+        check(settings.get_value(attr) == locked[attr], f"set_value can't move {attr}")
+    _name, qr = Settings.parse_settingsqr("settings::v1 xpub_qr=spl xpub_details=D passphrase=R camera=0 "
+                                          "priv_warn=D dire_warn=D partners=E rgb_inv=E sigs=ss")
+    settings.update(qr)
+    check(all(settings.get_value(a) == v for a, v in locked.items()), "a SettingsQR can't move any of them")
+    check(settings.get_value(C.SETTING__SIG_TYPES) == ["ss"], "... while the rest of the QR is applied")
+    settings.update({})
+    check(settings.get_value(C.SETTING__SIG_TYPES) == SettingsDefinition.get_settings_entry(C.SETTING__SIG_TYPES).default_value,
+          "back to defaults")
+
+    seen = {}
+
+    def labels(view):
+        view.run_screen = lambda cls, **kw: (seen.clear(), seen.update(kw), -1)[2]
+        view.screen = MagicMock()
+        view.run()
+        return [b.button_label for b in seen["button_data"]]
+
+    check(labels(SettingsMenuView()) == ["Denomination display", "Advanced", "Donate"], f"Settings: {labels(SettingsMenuView())}")
+    adv = labels(SettingsMenuView(visibility=C.VISIBILITY__ADVANCED))
+    check(adv == ["Bitcoin network", "QR code density", "Sig types", "Script types", "Compact SeedQR",
+                  "BIP-85 child seeds", "Electrum seeds", "Hardware"], f"Advanced: {adv}")
+    with patch.object(hw_profile, "has_battery_gauge", lambda: True):
+        hw = labels(SettingsMenuView(visibility=C.VISIBILITY__HARDWARE))
+    check(hw == ["Touch calibration", "Battery"], f"Hardware: only touch calibration and battery ({hw})")
+
+
+def test_message_signing_off_without_a_way_back():
+    """ 0036: a sign-message QR says the option is off, with no "Update setting" button """
+    from seedsigner.views.view import OptionDisabledView
+    seen = {}
+    v = OptionDisabledView(settings_attr=SettingsConstants.SETTING__MESSAGE_SIGNING)
+    v.run_screen = lambda cls, **kw: (seen.update(kw), 0)[1]
+    dest = v.run()
+    check([b.button_label for b in seen["button_data"]] == ["Back to Main Menu"] and dest.View_cls.__name__ == "MainMenuView",
+          f"only Back to Main Menu ({[b.button_label for b in seen['button_data']]})")
+    v = OptionDisabledView(settings_attr=SettingsConstants.SETTING__COMPACT_SEEDQR)
+    v.run_screen = lambda cls, **kw: (seen.update(kw), 0)[1]
+    v.run()
+    check(len(seen["button_data"]) == 2, "an option that isn't fixed still offers Update setting")
+
+
+def test_tools_menu():
+    """ 0036: no New seed from photo or dice; the other tools open as before """
+    from seedsigner.gui.screens.screen import ButtonListScreen
+    from seedsigner.views import tools_views
+    from seedsigner.views.scan_views import ScanAddressView
+    shown = {}
+
+    class FakeScreen:
+        pick = 0
+
+        def __init__(self, **kw):
+            shown.clear()
+            shown.update(kw)
+
+        def display(self):
+            return FakeScreen.pick
+
+    expected = {"Calc 12th/24th word": tools_views.ToolsCalcFinalWordNumWordsView,
+                "Address explorer": tools_views.ToolsAddressExplorerSelectSourceView,
+                "Verify address": ScanAddressView}
+    for i, (label, view_cls) in enumerate(expected.items()):
+        FakeScreen.pick = i
+        with patch.object(tools_views, "ButtonListScreen", FakeScreen):
+            dest = tools_views.ToolsMenuView().run()
+        check([b.button_label for b in shown["button_data"]] == list(expected), f"Tools: {[b.button_label for b in shown['button_data']]}")
+        check(dest.View_cls is view_cls, f"tap {i} ({label}) -> {dest.View_cls.__name__}")
+    FakeScreen.pick = -1
+    from seedsigner.gui.screens.screen import RET_CODE__BACK_BUTTON
+    FakeScreen.pick = RET_CODE__BACK_BUTTON
+    with patch.object(tools_views, "ButtonListScreen", FakeScreen):
+        dest = tools_views.ToolsMenuView().run()
+    check(dest.View_cls.__name__ == "BackStackView", "back still goes back")
+    for odd in (3, 4, 99, True, None):
+        FakeScreen.pick = odd
+        with patch.object(tools_views, "ButtonListScreen", FakeScreen):
+            dest = tools_views.ToolsMenuView().run()
+        check(dest is None or dest.View_cls.__name__ in ("BackStackView",), f"choice {odd!r} out of the list: back, never a hidden entry")
+    with patch.object(hw_profile, "is_max_profile", lambda: False), patch.object(tools_views, "ButtonListScreen", FakeScreen):
+        FakeScreen.pick = 0
+        dest = tools_views.ToolsMenuView().run()
+    check(len(shown["button_data"]) == 5 and dest.View_cls is tools_views.ToolsImageEntropyLivePreviewView,
+          "standard profile: SeedSigner's full Tools menu")
+
+
 def home():
     set_locale("en")
     data = [ButtonOption("Scan", SeedSignerIconConstants.SCAN), ButtonOption("Seeds", SeedSignerIconConstants.SEEDS),

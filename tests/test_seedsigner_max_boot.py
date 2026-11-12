@@ -4,6 +4,7 @@ repeated until a calibration is kept, and hands over to the "remove the microSD"
 when that is set to stay on screen. The diagnostic touch test, when enabled, comes first
 of all, then the calibration.
 """
+import pytest
 from unittest.mock import MagicMock, patch
 
 from base import BaseTest
@@ -18,7 +19,7 @@ class Stop(BaseException):
     """ Not an Exception: the Controller's main loop must not catch it """
 
 
-class TestBootCalibration(BaseTest):
+class _BootStart(BaseTest):
     def _start(self, microsd_toast_timer):
         """ (first Destination, activate_toast mock) when the Controller starts """
         seen = []
@@ -38,6 +39,28 @@ class TestBootCalibration(BaseTest):
                 pass
         return seen[0], activate_toast
 
+
+
+class TestBootLocked(_BootStart):
+    """ Seed Max (0036): with the Max's settings as they are, no microSD notice at boot """
+    def test_no_microsd_notice(self):
+        from seedsigner.views.settings_views import TouchCalibrationView
+        from seedsigner.views.view import MainMenuView
+        for asked in (SettingsConstants.MICROSD_TOAST_TIMER_FOREVER, SettingsConstants.MICROSD_TOAST_TIMER_FIVE_SECONDS):
+            first, toast = self._start(asked)
+            assert first.View_cls in (MainMenuView, None) and not toast.called, (asked, first)
+            hw_profile.TOUCH_CALIBRATE_AT_BOOT = True
+            try:
+                first, toast = self._start(asked)
+                assert first.View_cls == TouchCalibrationView
+                assert first.view_args == {"at_boot": True, "then_microsd_warning": False} and not toast.called
+            finally:
+                hw_profile.TOUCH_CALIBRATE_AT_BOOT = False
+
+
+
+@pytest.mark.usefixtures("seedsigner_settings_unlocked")    # Seed Max (0036): the microSD notice is off on the Max
+class TestBootCalibration(_BootStart):
 
     def test_calibration_first_when_enabled(self):
         from seedsigner.views.settings_views import TouchCalibrationView

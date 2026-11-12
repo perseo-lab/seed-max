@@ -161,9 +161,14 @@ class TestSettingsFlows(FlowTest):
                 load_settingsqr_into_decoder=load_persistent_settingsqr_into_decoder,
                 expected_setting_state=SettingsConstants.OPTION__DISABLED
             )
-            # 0032 review: a value that differs from the default ("camera=0"; the Max's default is 270)
+            # 0032 review: a value that differs from the default is applied ("sigs=ss"; the
+            # default is single + multisig)...
+            assert SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__SIG_TYPES).default_value != ["ss"]
+            assert self.settings.get_value(SettingsConstants.SETTING__SIG_TYPES) == ["ss"]
+            # ... but 0036: a setting fixed on the Max is not ("camera=0"; the camera is mounted at 270)
             assert SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__CAMERA_ROTATION).default_value != 0
-            assert self.settings.get_value(SettingsConstants.SETTING__CAMERA_ROTATION) == 0
+            assert self.settings.get_value(SettingsConstants.SETTING__CAMERA_ROTATION) \
+                == SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__CAMERA_ROTATION).default_value
             assert os.path.exists(Settings.SETTINGS_FILENAME) == False
             # A card inserted with a settings.json on it doesn't turn persistence back on
             with open(Settings.SETTINGS_FILENAME, "w") as f:

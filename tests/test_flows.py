@@ -196,6 +196,7 @@ class TestFlowTest(FlowTest):
             FlowStep(MainMenuView),  # Need a next Destination to force the first step to run
         ])
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_remove_microsd_blocking(self):
         """
         Verifies three related behaviors:

@@ -178,6 +178,7 @@ class TestSeedFlows(FlowTest):
         test_with_mnemonic("pioneer divide volcano art victory family grow novel mandate bicycle senior adjust".split(), expects_electrum_seed_is_valid=False)
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_export_xpub_standard_flow(self):
         """
             Selecting "Export XPUB" from the SeedOptionsView should enter the Export XPUB flow and end at the MainMenuView
@@ -289,6 +290,7 @@ class TestSeedFlows(FlowTest):
             )
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_export_xpub_custom_derivation_flow(self):
         """
             Export XPUB flow for custom derivation finishes at MainMenuView
@@ -334,6 +336,7 @@ class TestSeedFlows(FlowTest):
         )
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_export_xpub_skip_non_option_flow(self):
         """
             Export XPUB flows w/o user choices when no other options for sig_types, script_types, and/or xpub_qr_formats
@@ -540,6 +543,7 @@ class TestSeedEntryBackFlows(FlowTest):
         assert self.controller.storage.get_pending_mnemonic_word(1) is None
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_back_from_seed_entry_via_seed_select(self):
         """
         Backing out of mnemonic entry during an active flow must preserve
@@ -622,6 +626,7 @@ class TestMessageSigningFlows(FlowTest):
         self.controller.sign_message_data["paged_message"] = paged
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_sign_message_flow(self):
         """
         Should scan a `signmessage` QR and complete the message review, address review,
@@ -709,6 +714,7 @@ class TestMessageSigningFlows(FlowTest):
         ])
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_sign_message_network_mismatch_flow(self):
         """
         Should redirect to NetworkMismatchErrorView if a message's derivation path network doesn't match the current network.
@@ -740,6 +746,7 @@ class TestMessageSigningFlows(FlowTest):
         expect_network_mismatch_error(self.load_short_message_into_decoder)
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_sign_message_option_disabled(self):
         """
         Should redirect to OptionDisabledView if a `signmessage` QR is scanned with
@@ -774,6 +781,7 @@ class TestMessageSigningFlows(FlowTest):
         )
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_sign_message_invalid_qr_flow(self):
         """
         Should clear `Controller.resume_main_flow` and redirect to ErrorView if an
@@ -800,6 +808,7 @@ class TestMessageSigningFlows(FlowTest):
         assert self.controller.resume_main_flow is None
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_sign_message_unsupported_derivation_flow(self):
         """
         Should redirect to NotYetImplementedView if a message's derivation path isn't yet supported

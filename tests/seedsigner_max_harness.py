@@ -14,7 +14,7 @@ import os
 import sys
 import time
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 # Raspberry Pi-only modules
 sys.modules["RPi"] = MagicMock()
@@ -1031,12 +1031,18 @@ def _display_lock_checks(spidev, GPIO, DisplayDriverFactory, DISPLAY_TYPE__ILI94
           f"invert() from another thread never lands inside a pixel band ({frames} frames, {inverts} inverts, {broken} broken)")
 
     from seedsigner.models.settings import Settings
+    from seedsigner.models import settings_definition
     settings = Settings.get_instance()
+    # Seed Max (0036): the display speed is fixed on the Max; the driver's handling of
+    # the setting is still checked, with the lock lifted
+    unlocked = patch.object(settings_definition, "seedmax_locked_value", lambda attr_name: (False, None))
+    unlocked.start()
     settings.set_value(SettingsConstants.SETTING__MAX_DISPLAY_SPI_MHZ, 125)
     check(disp.pixel_speed_hz() == hw_profile.ILI9486_SPI_SPEED_HZ, "a display speed that isn't listed falls back to the default")
     settings.set_value(SettingsConstants.SETTING__MAX_DISPLAY_SPI_MHZ, 32)
     check(disp.pixel_speed_hz() == 32_000_000, "a listed one is used")
     settings.set_value(SettingsConstants.SETTING__MAX_DISPLAY_SPI_MHZ, hw_profile.ILI9486_SPI_SPEED_HZ // 1_000_000)
+    unlocked.stop()
 
 
 
@@ -1567,6 +1573,9 @@ def test_display_speed_setting():
     spidev.SpiDev = MagicMock(return_value=spi)
     disp = DisplayDriverFactory.instantiate_display_driver(DISPLAY_TYPE__ILI9486, width=480, height=320)
     settings = Settings.get_instance()
+    from seedsigner.models import settings_definition
+    unlocked = patch.object(settings_definition, "seedmax_locked_value", lambda attr_name: (False, None))
+    unlocked.start()        # Seed Max (0036): fixed on the Max; the mechanism is still checked
     try:
         disp.show_image(Image.new("RGB", (480, 320)))
         check(spi.max_speed_hz == 24_000_000, "default pixel clock 24 MHz")
@@ -1576,6 +1585,7 @@ def test_display_speed_setting():
         check(all(c.args[1] == 10_000_000 for c in spi.xfer2.call_args_list), "commands stay at 10 MHz")
     finally:
         settings.set_value(SettingsConstants.SETTING__MAX_DISPLAY_SPI_MHZ, 24)
+        unlocked.stop()
 
 
 

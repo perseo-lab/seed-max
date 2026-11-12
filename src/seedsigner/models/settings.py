@@ -193,6 +193,13 @@ class Settings(Singleton):
             if type(value) != list:
                 raise Exception(f"value must be a List for {attr_name}")
         
+        from seedsigner.models.settings_definition import seedmax_locked_value
+        is_locked, locked = seedmax_locked_value(attr_name)
+        if is_locked:
+            # Seed Max (0036): fixed on this device, whatever is asked (menu, SettingsQR)
+            self._data[attr_name] = locked
+            return
+
         if attr_name == SettingsConstants.SETTING__PERSISTENT_SETTINGS and not SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE:
             # Seed Max (0032): can't be enabled, and no file on the microSD is touched
             self._data[attr_name] = SettingsConstants.OPTION__DISABLED

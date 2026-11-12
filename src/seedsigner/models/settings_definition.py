@@ -886,3 +886,62 @@ class SettingsDefinition:
             output["settings_entries"].append(settings_entry.to_dict())
         
         return output
+
+
+
+# ---------------------------------------------------------------------------------------
+# Seed Max (0036, Ollen, 12 Nov 2026): settings fixed on the Max. They are not in any menu
+# (hidden), and nothing can move them off the value below: Settings.set_value() and a
+# SettingsQR leave them where they are (see Settings.set_value and tests/seedmax_identity.py).
+# Values: SeedSigner's defaults, except the microSD notice (off: the card stays in the
+# case), message signing (off: a signing feature Ollen doesn't use) and the partner logos
+# (off: the Seed Max splash doesn't show them).
+# ---------------------------------------------------------------------------------------
+def _seedmax_locked_settings() -> dict:
+    defaults = {e.attr_name: e.default_value for e in SettingsDefinition.settings_entries}
+    C = SettingsConstants
+    locked = {attr: defaults[attr] for attr in (
+        C.SETTING__XPUB_QR_FORMAT,            # animated (UR) + static
+        C.SETTING__XPUB_DETAILS,              # always shown
+        C.SETTING__PASSPHRASE,                # always offered
+        C.SETTING__PRIVACY_WARNINGS,          # always shown
+        C.SETTING__DIRE_WARNINGS,             # always shown
+        C.SETTING__QR_BRIGHTNESS_TIPS,        # always shown
+        C.SETTING__CAMERA_ROTATION,           # fixed by the build (hw_profile)
+        C.SETTING__DISPLAY_CONFIGURATION,     # the panel this image was built for
+        C.SETTING__MAX_CAMERA_RESOLUTION,
+        C.SETTING__MAX_DISPLAY_SPI_MHZ,
+        C.SETTING__DISPLAY_COLOR_INVERTED,
+    )}
+    locked[C.SETTING__MICROSD_TOAST_TIMER] = C.MICROSD_TOAST_TIMER_DISABLED
+    locked[C.SETTING__MESSAGE_SIGNING] = C.OPTION__DISABLED
+    locked[C.SETTING__PARTNER_LOGOS] = C.OPTION__DISABLED
+    return locked
+
+
+SEEDMAX_LOCKED_SETTINGS = _seedmax_locked_settings()
+
+# Hidden from the menus but not fixed: the camera zoom is changed by the zoom button of the
+# scan screen (0020), which keeps it for the next scan
+SEEDMAX_HIDDEN_SETTINGS = (SettingsConstants.SETTING__MAX_CAMERA_ZOOM,)
+
+
+def seedmax_locked_value(attr_name: str):
+    """ (True, value) if `attr_name` is fixed on this device, else (False, None) """
+    if hw_profile.is_max_profile() and attr_name in SEEDMAX_LOCKED_SETTINGS:
+        value = SEEDMAX_LOCKED_SETTINGS[attr_name]
+        return True, (list(value) if isinstance(value, list) else value)
+    return False, None
+
+
+# SeedSigner's own visibility and default of each, for the test suite (tests/conftest.py)
+SEEDSIGNER_UNLOCKED = {e.attr_name: (e.visibility, e.default_value) for e in SettingsDefinition.settings_entries
+                       if e.attr_name in SEEDMAX_LOCKED_SETTINGS or e.attr_name in SEEDMAX_HIDDEN_SETTINGS}
+
+if hw_profile.is_max_profile():
+    for _entry in SettingsDefinition.settings_entries:
+        if _entry.attr_name in SEEDMAX_LOCKED_SETTINGS:
+            _entry.visibility = SettingsConstants.VISIBILITY__HIDDEN
+            _entry.default_value = SEEDMAX_LOCKED_SETTINGS[_entry.attr_name]
+        elif _entry.attr_name in SEEDMAX_HIDDEN_SETTINGS:
+            _entry.visibility = SettingsConstants.VISIBILITY__HIDDEN

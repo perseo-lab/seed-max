@@ -121,6 +121,11 @@ class View:
         if seedmax_words.applies(self, Screen_cls):
             return seedmax_words.run(self, kwargs)
 
+        # Seed Max (0036): menu entries the Max doesn't offer (views/seedmax_menus.py)
+        from seedsigner.views import seedmax_menus
+        if seedmax_menus.applies(self, kwargs):
+            return seedmax_menus.run(self, Screen_cls, kwargs)
+
         self.screen = Screen_cls(**kwargs)
         return self.screen.display()
 
@@ -448,6 +453,10 @@ class OptionDisabledView(View):
 
     def run(self):
         button_data = [self.UPDATE_SETTING, self.DONE]
+        from seedsigner.models.settings_definition import seedmax_locked_value
+        if seedmax_locked_value(self.settings_attr)[0]:
+            # Seed Max (0036): this option is fixed on the device, nothing to update
+            button_data = [self.DONE]
         selected_menu_num = self.run_screen(
             WarningScreen,
             title=_("Option Disabled"),

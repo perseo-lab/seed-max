@@ -464,7 +464,10 @@ def test_tuning_settings():
     spi = SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__MAX_DISPLAY_SPI_MHZ)
     assert [v for v, _ in res.selection_options] == [480, 400, 320] and res.default_value == hw_profile.CAMERA_RESOLUTION
     assert [v for v, _ in spi.selection_options] == [16, 24, 32] and spi.default_value == 24
-    assert res.visibility == SettingsConstants.VISIBILITY__HARDWARE == spi.visibility
+    # Seed Max (0036): fixed at these values on the Max, in no menu
+    from seedsigner.models.settings_definition import SEEDMAX_LOCKED_SETTINGS
+    assert res.visibility == SettingsConstants.VISIBILITY__HIDDEN == spi.visibility
+    assert SEEDMAX_LOCKED_SETTINGS[res.attr_name] == res.default_value and SEEDMAX_LOCKED_SETTINGS[spi.attr_name] == 24
 
 
 def test_final_camera_and_display_values():

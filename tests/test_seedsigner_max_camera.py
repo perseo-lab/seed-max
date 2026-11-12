@@ -61,7 +61,8 @@ def test_zoom_settings():
     entry = SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__MAX_CAMERA_ZOOM)
     assert [v for v, _ in entry.selection_options] == list(hw_profile.CAMERA_ZOOM_STEPS) == [1, 2, 3]
     assert entry.default_value == hw_profile.CAMERA_ZOOM == 1, "starts as the stock scanner"
-    assert entry.visibility == SettingsConstants.VISIBILITY__HARDWARE
+    # Seed Max (0036): out of the Hardware menu; the scan screen's zoom button still sets it
+    assert entry.visibility == SettingsConstants.VISIBILITY__HIDDEN
 
 
 # ---------------------------------------------------------------------------------------
