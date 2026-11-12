@@ -12,7 +12,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-# Every file of models/ (except settings_definition.py, the Max's settings), helpers/,
+# Every file of models/ (except settings_definition.py, the Max's settings, and since 0032
+# settings.py: Persistent Settings removed - storing settings, not signing), helpers/,
 # views/psbt_views.py and views/seed_views.py, with its git blob id in SeedSigner 0.8.7
 # (commit e0a80d4b). These read the PSBT, check change, derive keys and sign. Since the
 # 0031 review also: views/scan_views.py (scanned QR to PSBT/seed), views/tools_views.py
@@ -51,7 +52,6 @@ SIGNING_FILES_0_8_7 = {
     "src/seedsigner/models/qr_type.py": "bd678f7e898083eba3fe7f9b0924fb05705c1665",
     "src/seedsigner/models/seed.py": "82ed9eb2ca1c6b2a9295a8247cfb515fb1755022",
     "src/seedsigner/models/seed_storage.py": "85feb49cb6afc36c22513ee4fd448116625fac26",
-    "src/seedsigner/models/settings.py": "14741e678020d53b58122c0fd6572923da761063",
     "src/seedsigner/models/singleton.py": "9635106b586bdb981b057fec7111083bed3f49b8",
     "src/seedsigner/models/threads.py": "0fe5651c111a811e119c1f6ea2203b8c7cba3690",
     "src/seedsigner/views/psbt_views.py": "475aef49abd9290ae6d368e1200e89d4f02be543",
@@ -77,7 +77,8 @@ def test_signing_code_is_seedsigner_0_8_7():
                 continue
             for name in files:
                 rel = os.path.relpath(os.path.join(root, name), ROOT).replace(os.sep, "/")
-                if rel.endswith(".py") and rel != "src/seedsigner/models/settings_definition.py":
+                if rel.endswith(".py") and rel not in ("src/seedsigner/models/settings_definition.py",
+                                                       "src/seedsigner/models/settings.py"):
                     present.add(rel)
     extra = present - set(SIGNING_FILES_0_8_7)
     assert not extra, f"new files among the signing code: {sorted(extra)}"

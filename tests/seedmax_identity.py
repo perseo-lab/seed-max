@@ -262,8 +262,9 @@ def test_chip_sets_language_in_memory_only():
             control = len(written)
             settings.save()                      # the same conditions do save through Settings
         check(settings.get_value(SettingsConstants.SETTING__LOCALE) == "de", "Persistent Settings on: DE chosen")
-        check(control == 0 and len(written) == 1, f"... and still nothing written by the chip ({control}); "
-                                                   f"Settings.save() would have written ({len(written) - control})")
+        # 0032: Persistent Settings removed, so not even Settings.save() writes any more
+        check(control == 0 and len(written) == 0, f"... and nothing written, by the chip ({control}) "
+                                                   f"or by Settings.save() ({len(written) - control})")
     finally:
         settings._data[SettingsConstants.SETTING__PERSISTENT_SETTINGS] = SettingsConstants.OPTION__DISABLED
         if os.path.exists(Settings.SETTINGS_FILENAME):
@@ -368,6 +369,74 @@ def test_standard_profile_keeps_seedsigner_splash():
     with patch.object(OpeningSplashView, "run_screen", lambda self, cls, **kw: seen.append(cls)):
         OpeningSplashView().run()
     check(seen == [SeedMaxSplashScreen], f"Max profile: the Seed Max splash ({seen})")
+
+
+def test_persistent_settings_removed():
+    """ 0032: the option is gone and nothing can bring it back """
+    from seedsigner.models.settings_definition import SettingsDefinition
+    entry = SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__PERSISTENT_SETTINGS)
+    check(SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE is False, "Persistent Settings switched off in the image")
+    check(entry.visibility == SettingsConstants.VISIBILITY__HIDDEN, "not in the Settings menu")
+    check(entry.selection_options == SettingsConstants.OPTIONS__ONLY_DISABLED, "DISABLED is the only value")
+    settings = Settings.get_instance()
+    real_open = builtins.open
+    written = []
+
+    def spy_open(path, mode="r", *args, **kwargs):
+        if "w" in mode or "a" in mode:
+            written.append(path)
+        return real_open(path, mode, *args, **kwargs)
+
+    with patch("builtins.open", spy_open), patch("os.remove") as removed:
+        settings.set_value(SettingsConstants.SETTING__PERSISTENT_SETTINGS, SettingsConstants.OPTION__ENABLED)
+        _name, qr = Settings.parse_settingsqr("settings::v1 persistent=E qr_density=H")
+        settings.update(qr)
+        settings._data[SettingsConstants.SETTING__PERSISTENT_SETTINGS] = SettingsConstants.OPTION__ENABLED
+        settings.save()
+    check(not written and not removed.called, f"set_value, SettingsQR and save() write or delete nothing: {written}")
+    settings._data[SettingsConstants.SETTING__PERSISTENT_SETTINGS] = SettingsConstants.OPTION__DISABLED
+    settings.update(qr)
+    check(settings.get_value(SettingsConstants.SETTING__PERSISTENT_SETTINGS) == SettingsConstants.OPTION__DISABLED
+          and settings.get_value(SettingsConstants.SETTING__QR_DENSITY) == SettingsConstants.DENSITY__HIGH,
+          "a SettingsQR with persistent=E: applied, persistence off")
+    settings.update({})
+    set_locale("en")
+
+
+def test_donation():
+    """ 0032: the Donate screen, then the BOLT12 offer as a QR that decodes to the exact string """
+    from pyzbar.pyzbar import decode
+    from seedsigner.gui.screens.settings_screens import SeedMaxDonateScreen
+    from seedsigner.models.encode_qr import GenericStaticQrEncoder
+    from seedsigner.views.settings_views import DonateView, SeedMaxDonateQRView
+    offer = seedmax.DONATION_BOLT12
+    check(offer.startswith("lno1") and len(offer) == 334 and offer == offer.lower(), "a BOLT12 offer, 334 characters")
+    for lang in seedmax.DONATE_STRINGS:
+        set_locale(lang)
+        s = SeedMaxDonateScreen()
+        with R.lock:
+            s._render()
+        texts = [c for c in s.components if c.__class__.__name__ == "TextArea"]
+        bottom = max(t.screen_y + t.height for t in texts)
+        check(bottom < component_rect(s.buttons[0])[1], f"{lang}: texts above the button")
+        check(s.buttons[0].text == seedmax.donate_text(lang, "show"), f"{lang}: button {s.buttons[0].text!r}")
+    set_locale("en")
+    seen = {}
+    view = SeedMaxDonateQRView()
+    view.run_screen = lambda cls, **kw: seen.update(cls=cls.__name__, **kw)
+    dest = view.run()
+    enc = seen.get("qr_encoder")
+    check(seen.get("cls") == "QRDisplayScreen" and isinstance(enc, GenericStaticQrEncoder) and enc.data == offer,
+          "Show QR: the full-size QR screen with the offer")
+    check(dest.View_cls is DonateView, "Done: back to Donate")
+    img = GenericStaticQrEncoder(data=offer).next_part_image(320, 320, border=3, background_color="ffffff")
+    found = [r.data.decode() for r in decode(img.convert("L"))]
+    check(found == [offer], f"the 320 px QR decodes to the exact offer ({len(found)} code)")
+    v = DonateView()
+    v.run_screen = lambda cls, **kw: 0
+    check(v.run().View_cls is SeedMaxDonateQRView, "Donate > Show QR opens the QR")
+    v.run_screen = lambda cls, **kw: -1
+    check(v.run().View_cls.__name__ == "SettingsMenuView", "Donate > back: Settings")
 
 
 def home():

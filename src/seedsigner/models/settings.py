@@ -34,7 +34,8 @@ class Settings(Singleton):
             settings._data = SettingsDefinition.get_defaults()
 
             # Read persistent settings file, if it exists
-            if os.path.exists(Settings.SETTINGS_FILENAME):
+            # (Seed Max (0032): never; a settings.json on the microSD is ignored)
+            if SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE and os.path.exists(Settings.SETTINGS_FILENAME):
                 with open(Settings.SETTINGS_FILENAME) as settings_file:
                     settings.update(json.load(settings_file))
 
@@ -129,6 +130,8 @@ class Settings(Singleton):
 
     def save(self):
         from seedsigner.hardware.microsd import MicroSD
+        if not SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE:
+            return      # Seed Max (0032): never written to the microSD
         if self._data[SettingsConstants.SETTING__PERSISTENT_SETTINGS] == SettingsConstants.OPTION__ENABLED and MicroSD.get_instance().is_inserted:
             with open(Settings.SETTINGS_FILENAME, 'w') as settings_file:
                 json.dump(self._data, settings_file, indent=4)
@@ -167,6 +170,10 @@ class Settings(Singleton):
                         # Multiselect cannot be empty; load defaults to avoid issues
                         new_settings[entry.attr_name] = entry.default_value
 
+        if not SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE:
+            # Seed Max (0032): whatever a SettingsQR asks, persistence stays off
+            new_settings[SettingsConstants.SETTING__PERSISTENT_SETTINGS] = SettingsConstants.OPTION__DISABLED
+
         for key, value in new_settings.items():
             self.set_value(key, value)
 
@@ -186,6 +193,11 @@ class Settings(Singleton):
             if type(value) != list:
                 raise Exception(f"value must be a List for {attr_name}")
         
+        if attr_name == SettingsConstants.SETTING__PERSISTENT_SETTINGS and not SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE:
+            # Seed Max (0032): can't be enabled, and no file on the microSD is touched
+            self._data[attr_name] = SettingsConstants.OPTION__DISABLED
+            return
+
         # Special handling for toggling persistence
         if attr_name == SettingsConstants.SETTING__PERSISTENT_SETTINGS and value == SettingsConstants.OPTION__DISABLED:
             try:
@@ -281,6 +293,9 @@ class Settings(Singleton):
         Enables/Disables the Persistent Settings option based on the MicroSD card state.
         """
         from seedsigner.hardware.microsd import MicroSD
+
+        if not SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE:
+            return      # Seed Max (0032): the option stays DISABLED, nothing is saved, whatever the card does
 
         if Settings.HOSTNAME == Settings.SEEDSIGNER_OS:
             if action == MicroSD.ACTION__INSERTED:

@@ -21,6 +21,11 @@ class SettingsConstants:
         (OPTION__ENABLED, _mft("Enabled")),
         (OPTION__DISABLED, _mft("Disabled")),
     ]
+    # Seed Max (0032): Persistent Settings removed. Nothing is ever read from or written to
+    # the microSD as settings.json; the option is hidden and DISABLED is its only value.
+    # The guards are in models/settings.py; True gives back SeedSigner's behaviour.
+    PERSISTENT_SETTINGS_AVAILABLE = False
+
     OPTIONS__ONLY_DISABLED = [
         (OPTION__DISABLED, _mft("Disabled")),
     ]
@@ -605,6 +610,11 @@ class SettingsDefinition:
                       abbreviated_name="persistent",
                       display_name=_mft("Persistent settings"),
                       help_text=SettingsConstants.PERSISTENT_SETTINGS__SD_INSERTED__HELP_TEXT,
+                      # Seed Max (0032): hidden, and DISABLED is the only value (SELECT_1: the
+                      # ENABLED_DISABLED type would put ENABLED back in __post_init__)
+                      type=SettingsConstants.TYPE__ENABLED_DISABLED if SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE else SettingsConstants.TYPE__SELECT_1,
+                      visibility=SettingsConstants.VISIBILITY__GENERAL if SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE else SettingsConstants.VISIBILITY__HIDDEN,
+                      selection_options=SettingsConstants.OPTIONS__ENABLED_DISABLED if SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE else SettingsConstants.OPTIONS__ONLY_DISABLED,
                       default_value=SettingsConstants.OPTION__DISABLED),
 
         SettingsEntry(category=SettingsConstants.CATEGORY__SYSTEM,

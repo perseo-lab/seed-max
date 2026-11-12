@@ -20,6 +20,17 @@ class TestSettings(BaseTest):
         settings_entry = SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__PERSISTENT_SETTINGS)
         assert settings_entry.default_value == SettingsConstants.OPTION__DISABLED
 
+        if not SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE:
+            # Seed Max (0032): Persistent Settings can't be enabled; check the reset with another setting
+            settings = Settings.get_instance()
+            settings.set_value(SettingsConstants.SETTING__PERSISTENT_SETTINGS, SettingsConstants.OPTION__ENABLED)
+            assert settings.get_value(SettingsConstants.SETTING__PERSISTENT_SETTINGS) == SettingsConstants.OPTION__DISABLED
+            settings.set_value(SettingsConstants.SETTING__QR_DENSITY, SettingsConstants.DENSITY__HIGH)
+            BaseTest.reset_settings()
+            assert Settings.get_instance().get_value(SettingsConstants.SETTING__QR_DENSITY) == \
+                SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__QR_DENSITY).default_value
+            return
+
         # Change the setting from its default
         settings = Settings.get_instance()
         settings.set_value(SettingsConstants.SETTING__PERSISTENT_SETTINGS, SettingsConstants.OPTION__ENABLED)
@@ -41,6 +52,27 @@ class TestSettings(BaseTest):
     def test_load_persistent_settings(self):
         """ Settings should load previously saved persistent settings from disk, if any
         exist. """
+        if not SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE:
+            # Seed Max (0032): a settings.json on the microSD is ignored at boot, and
+            # nothing writes one
+            import os
+            settings = Settings.get_instance()
+            settings.set_value(SettingsConstants.SETTING__PERSISTENT_SETTINGS, SettingsConstants.OPTION__ENABLED)
+            settings.set_value(SettingsConstants.SETTING__QR_DENSITY, SettingsConstants.DENSITY__HIGH)
+            assert not os.path.exists(Settings.SETTINGS_FILENAME)
+            planted = dict(settings._data)
+            planted[SettingsConstants.SETTING__PERSISTENT_SETTINGS] = SettingsConstants.OPTION__ENABLED
+            BaseTest.reset_settings()
+            with open(Settings.SETTINGS_FILENAME, "w") as settings_file:
+                settings_file.write(json.dumps(planted))
+            try:
+                settings = Settings.get_instance()
+                assert settings.get_value(SettingsConstants.SETTING__QR_DENSITY) != SettingsConstants.DENSITY__HIGH
+                assert settings.get_value(SettingsConstants.SETTING__PERSISTENT_SETTINGS) == SettingsConstants.OPTION__DISABLED
+            finally:
+                os.remove(Settings.SETTINGS_FILENAME)
+            return
+
         # Initial Settings will start with defaults
         settings = Settings.get_instance()
 
@@ -74,13 +106,17 @@ class TestSettings(BaseTest):
         # Initial Settings will start with defaults
         settings = Settings.get_instance()
 
-        # Enable persistent settings to write settings.json to disk
-        settings.set_value(SettingsConstants.SETTING__PERSISTENT_SETTINGS, SettingsConstants.OPTION__ENABLED)
+        if SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE:
+            # Enable persistent settings to write settings.json to disk
+            settings.set_value(SettingsConstants.SETTING__PERSISTENT_SETTINGS, SettingsConstants.OPTION__ENABLED)
 
-        # Hold on to the settings.json content
-        settings_dict = None
-        with open(Settings.SETTINGS_FILENAME) as settings_file:
-            settings_dict = json.loads(settings_file.read())
+            # Hold on to the settings.json content
+            settings_dict = None
+            with open(Settings.SETTINGS_FILENAME) as settings_file:
+                settings_dict = json.loads(settings_file.read())
+        else:
+            # Seed Max (0032): no settings.json; the same dict, from memory
+            settings_dict = json.loads(json.dumps(settings._data))
 
         def _verify_defaults_loaded(attr_name: str):
             # Verify that the multiselect setting has loaded its defaults

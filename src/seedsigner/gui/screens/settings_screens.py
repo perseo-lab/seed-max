@@ -293,6 +293,38 @@ class IOTestScreen(BaseTopNavScreen):
 
 
 @dataclass
+class SeedMaxDonateScreen(ButtonListScreen):
+    """
+    Seed Max (0032): who to thank, and how. The QR comes on the next screen, full size.
+    Texts in the splash's languages (seedmax.DONATE_STRINGS), English otherwise.
+    """
+    is_bottom_list: bool = True
+
+    def __post_init__(self):
+        from seedsigner.gui import seedmax
+        from seedsigner.models.settings import Settings
+        from seedsigner.models.settings_definition import SettingsConstants
+        lang = Settings.get_instance().get_value(SettingsConstants.SETTING__LOCALE)
+        self.title = _("Donate")
+        self.button_data = [ButtonOption(seedmax.donate_text(lang, "show"), right_icon_name=SeedSignerIconConstants.CHEVRON_RIGHT)]
+        super().__post_init__()
+
+        y = self.top_nav.height + 3 * GUIConstants.COMPONENT_PADDING
+        for key, color, size in (("free", GUIConstants.BODY_FONT_COLOR, GUIConstants.get_body_font_size() + 2),
+                                 ("how", GUIConstants.ACCENT_COLOR, GUIConstants.get_body_font_size() + 2),
+                                 ("wallets", GUIConstants.LABEL_FONT_COLOR, GUIConstants.get_body_font_size())):
+            area = TextArea(
+                text=seedmax.donate_text(lang, key),
+                font_color=color,
+                font_size=size,
+                screen_y=y,
+            )
+            self.components.append(area)
+            y += area.height + (3 if key == "how" else 2) * GUIConstants.COMPONENT_PADDING
+
+
+
+@dataclass
 class DonateScreen(BaseTopNavScreen):
     def __post_init__(self):
         self.title = _("Donate")

@@ -132,6 +132,38 @@ STRINGS = {
 }
 
 
+# ---------------------------------------------------------------------------------------
+# Donations (0032, Ollen's choice of 12 Nov 2026): Lightning only, a BOLT12 offer. It has
+# no amount (the donor chooses), no description and no node id: one blinded path whose
+# introduction node is ACINQ's (Phoenix). Reusable forever, nothing on-chain reused.
+# Payable by BOLT12 wallets (Phoenix, Zeus, Core Lightning...), not by Sparrow (on-chain).
+# tests/seedmax_identity.py decodes the displayed QR and compares it with this string.
+# ---------------------------------------------------------------------------------------
+DONATION_BOLT12 = (
+    "lno1zrxq8pjw7qjlm68mtp7e3yvxee4y5xrgjhhyf2fxhlphpckrvevh50u0qfxc0n6m228mgt5rlpmqp63upgwf7zysppmpe"
+    "ar64gjp6taxvp6e2qsr026hacegmnfhu9zd40k9qkplmy3kqee6vfu99esl7nvj35l86wqqqve5llhdydajwyz64hmauj7qk93"
+    "xjkaca4pa96tttzr9tfts2tmpu9mlwv39m494t6j9qht5dpqggel0rxvgqfguxstts7ff65m9xhm60x3ea2kae8xjqy84qzes7t"
+    "um7w780vh36qqsnus40074hc0y64ksea2xvfwsgq"
+)
+
+DONATE_STRINGS = {
+    "en": dict(free="Seed Max is free and open source.", how="Support it with Lightning (BOLT12):",
+               wallets="scan with Phoenix, Zeus or another BOLT12 wallet", show="Show QR"),
+    "it": dict(free="Seed Max è libero e open source.", how="Sostienilo con Lightning (BOLT12):",
+               wallets="inquadra con Phoenix, Zeus o un altro wallet BOLT12", show="Mostra QR"),
+    "fr": dict(free="Seed Max est libre et open source.", how="Soutenez-le avec Lightning (BOLT12) :",
+               wallets="scannez avec Phoenix, Zeus ou un autre wallet BOLT12", show="Afficher le QR"),
+    "es": dict(free="Seed Max es libre y de código abierto.", how="Apóyalo con Lightning (BOLT12):",
+               wallets="escanea con Phoenix, Zeus u otra wallet BOLT12", show="Mostrar QR"),
+    "de": dict(free="Seed Max ist frei und Open Source.", how="Unterstütze es mit Lightning (BOLT12):",
+               wallets="mit Phoenix, Zeus oder einer anderen BOLT12-Wallet scannen", show="QR zeigen"),
+}
+
+
+def donate_text(lang: str, key: str) -> str:
+    return DONATE_STRINGS.get(lang, DONATE_STRINGS["en"])[key]
+
+
 def text(lang: str, key: str):
     value = STRINGS.get(lang, STRINGS["en"])[key]
     if isinstance(value, str):

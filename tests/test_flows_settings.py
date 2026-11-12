@@ -24,6 +24,24 @@ class TestSettingsFlows(FlowTest):
         # No settings file should exist before we enable persistent settings
         assert os.path.exists(Settings.SETTINGS_FILENAME) == False
 
+        if not SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE:
+            # Seed Max (0032): no "Persistent settings" entry in Settings (nor in Advanced)
+            from unittest.mock import MagicMock
+            for visibility in (SettingsConstants.VISIBILITY__GENERAL, SettingsConstants.VISIBILITY__ADVANCED):
+                view = settings_views.SettingsMenuView(visibility=visibility)
+                seen = {}
+
+                def fake_run_screen(screen_cls, **kwargs):
+                    seen.update(kwargs)
+                    view.screen = MagicMock()
+                    return RET_CODE__BACK_BUTTON
+                view.run_screen = fake_run_screen
+                view.run()
+                assert ButtonOption(settings_entry.display_name) not in seen["button_data"]
+            assert settings_entry.selection_options == SettingsConstants.OPTIONS__ONLY_DISABLED
+            assert os.path.exists(Settings.SETTINGS_FILENAME) == False
+            return
+
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SETTINGS),
             FlowStep(settings_views.SettingsMenuView, button_data_selection=ButtonOption(settings_entry.display_name)),
@@ -134,6 +152,33 @@ class TestSettingsFlows(FlowTest):
         # First load a SettingsQR that enables persistent settings
         self.mock_microsd.is_inserted = True
         assert MicroSD.get_instance().is_inserted is True
+
+        if not SettingsConstants.PERSISTENT_SETTINGS_AVAILABLE:
+            # Seed Max (0032): "persistent=E" is accepted, applied as DISABLED, and nothing
+            # is written; the other settings of the QR are applied
+            _run_test(
+                initial_setting_state=SettingsConstants.OPTION__DISABLED,
+                load_settingsqr_into_decoder=load_persistent_settingsqr_into_decoder,
+                expected_setting_state=SettingsConstants.OPTION__DISABLED
+            )
+            # 0032 review: a value that differs from the default ("camera=0"; the Max's default is 270)
+            assert SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__CAMERA_ROTATION).default_value != 0
+            assert self.settings.get_value(SettingsConstants.SETTING__CAMERA_ROTATION) == 0
+            assert os.path.exists(Settings.SETTINGS_FILENAME) == False
+            # A card inserted with a settings.json on it doesn't turn persistence back on
+            with open(Settings.SETTINGS_FILENAME, "w") as f:
+                f.write("{}")
+            try:
+                with patch('seedsigner.models.settings.Settings.HOSTNAME', new_callable=PropertyMock) as mock_hostname:
+                    mock_hostname.return_value = Settings.SEEDSIGNER_OS
+                    Settings.handle_microsd_state_change(MicroSD.ACTION__INSERTED)
+                assert self.settings.get_value(SettingsConstants.SETTING__PERSISTENT_SETTINGS) == SettingsConstants.OPTION__DISABLED
+                assert SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__PERSISTENT_SETTINGS).selection_options \
+                    == SettingsConstants.OPTIONS__ONLY_DISABLED
+                assert open(Settings.SETTINGS_FILENAME).read() == "{}", "the file on the card is not rewritten"
+            finally:
+                os.remove(Settings.SETTINGS_FILENAME)
+            return
 
         _run_test(
             initial_setting_state=SettingsConstants.OPTION__DISABLED,

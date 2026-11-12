@@ -465,6 +465,26 @@ class TouchCalibrationView(View):
 
 class DonateView(View):
     def run(self):
+        from seedsigner.hardware import hw_profile
+        if hw_profile.is_max_profile():
+            # Seed Max (0032): the BOLT12 offer of the project, on the next screen
+            selected = self.run_screen(settings_screens.SeedMaxDonateScreen)
+            if selected == 0:
+                return Destination(SeedMaxDonateQRView)
+            return Destination(SettingsMenuView)
+
         self.run_screen(settings_screens.DonateScreen)
 
         return Destination(SettingsMenuView)
+
+
+
+class SeedMaxDonateQRView(View):
+    """ Seed Max (0032): the donation QR, full size (the screen used for the xpub) """
+    def run(self):
+        from seedsigner.gui import seedmax
+        from seedsigner.gui.screens.screen import QRDisplayScreen
+        from seedsigner.models.encode_qr import GenericStaticQrEncoder
+
+        self.run_screen(QRDisplayScreen, qr_encoder=GenericStaticQrEncoder(data=seedmax.DONATION_BOLT12))
+        return Destination(DonateView, skip_current_view=True)
