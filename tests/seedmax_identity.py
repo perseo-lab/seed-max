@@ -587,6 +587,35 @@ def test_verified_address_whole():
     check(any(isinstance(c, FormattedAddress) for c in s.components), "standard profile: SeedSigner's own format")
 
 
+def test_word_screens_render():
+    """ 0034: the AKC keyboard and the review drawn for real, in every language """
+    from embit.wordlists.bip39 import WORDLIST
+    from seedsigner.gui.screens import seedmax_words as ws
+    words = ["abandon"] * 11 + ["about"]
+    d = ImageDraw.Draw(Image.new("RGB", (480, 320)))
+    for lang in seedmax.WORD_STRINGS:
+        s = ws.SeedMaxWordEntryScreen(wordlist=WORDLIST, word_index=4, word_count=12, lang=lang)
+        s.text = "ba"
+        with R.lock:
+            s._render()
+        px = R.canvas.getpixel((ws.key_rects()["x"][0] + 4, ws.key_rects()["x"][1] + 4))
+        check(px[:3] != rgb(GUIConstants.ACCENT_COLOR), f"{lang}: keyboard drawn")
+        r = ws.SeedMaxWordEntryScreen(wordlist=WORDLIST, word_index=11, word_count=12, lang=lang,
+                                      current_word="about", earlier_words=words[:11], start_in_review=True)
+        for shown, text in ((False, "about"), (True, "about"), (True, "zoo")):
+            r.shown, r.text = shown, text
+            with R.lock:
+                r._render()
+        for key in ("hidden", "ok", "bad"):
+            t = seedmax.word_text(lang, key)
+            f = r.fit(t, 15, 480 - 16)
+            check(f.size >= 12, f"{lang} review line {key!r} readable: {f.size} px")
+        for key in ("back", "delete", "show", "confirm", "wrong"):
+            t = seedmax.word_text(lang, key)
+            check(d.textlength(t, font=r.font(18)) < 220, f"{lang} {key!r} fits its button")
+        check(len(seedmax.word_text(lang, "title", n=24, m=24)) <= 22, f"{lang}: title short enough for the top nav")
+
+
 def home():
     set_locale("en")
     data = [ButtonOption("Scan", SeedSignerIconConstants.SCAN), ButtonOption("Seeds", SeedSignerIconConstants.SEEDS),

@@ -347,6 +347,7 @@ class Controller(Singleton):
                     self.psbt = None
                     self.psbt_parser = None
                     self.psbt_seed = None
+                    self.seedmax_word_jump = None    # Seed Max (0034): no word jump survives Home
                 
                 logger.info(f"\nback_stack: {self.back_stack}")
 
@@ -482,6 +483,7 @@ class Controller(Singleton):
         """
         from seedsigner.views.view import UnhandledExceptionView
         logger.exception(e)
+        self.seedmax_word_jump = None    # Seed Max (0034): no word jump survives an error
 
         # The final exception output line is:
         # "foo.bar.ExceptionType: The exception message"

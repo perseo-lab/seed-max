@@ -162,6 +162,35 @@ DONATE_STRINGS = {
 }
 
 
+# 0034: word entry (AKC keyboard) and the review of all the words
+WORD_STRINGS = {
+    "en": dict(title="Word {n} of {m}", matches="{n} words", back="Back", delete="Delete",
+               review="Review words", show="Show words", hidden="Words hidden: tap Show to compare with your backup",
+               ok="Checksum OK · compare word by word with your backup", confirm="Confirm",
+               bad="Wrong checksum: tap the wrong word to rewrite it", wrong="Wrong"),
+    "it": dict(title="Parola {n} di {m}", matches="{n} parole", back="Indietro", delete="Cancella",
+               review="Riepilogo parole", show="Mostra parole", hidden="Parole nascoste: tocca Mostra per confrontarle col backup",
+               ok="Checksum OK · confronta parola per parola col backup", confirm="Conferma",
+               bad="Checksum errato: tocca la parola sbagliata per riscriverla", wrong="Errato"),
+    "fr": dict(title="Mot {n} sur {m}", matches="{n} mots", back="Retour", delete="Effacer",
+               review="Revue des mots", show="Afficher", hidden="Mots masqués : touchez Afficher pour comparer à la sauvegarde",
+               ok="Checksum OK · comparez mot par mot avec la sauvegarde", confirm="Confirmer",
+               bad="Checksum faux : touchez le mot erroné pour le réécrire", wrong="Erroné"),
+    "es": dict(title="Palabra {n} de {m}", matches="{n} palabras", back="Atrás", delete="Borrar",
+               review="Revisar palabras", show="Mostrar", hidden="Palabras ocultas: toca Mostrar para compararlas con el respaldo",
+               ok="Checksum OK · compara palabra por palabra con el respaldo", confirm="Confirmar",
+               bad="Checksum erróneo: toca la palabra errónea para reescribirla", wrong="Erróneo"),
+    "de": dict(title="Wort {n} von {m}", matches="{n} Wörter", back="Zurück", delete="Löschen",
+               review="Wörter prüfen", show="Zeigen", hidden="Wörter verborgen: Zeigen tippen, um mit dem Backup zu vergleichen",
+               ok="Prüfsumme OK · Wort für Wort mit dem Backup vergleichen", confirm="Bestätigen",
+               bad="Falsche Prüfsumme: falsches Wort antippen und neu schreiben", wrong="Falsch"),
+}
+
+
+def word_text(lang: str, key: str, **values) -> str:
+    return WORD_STRINGS.get(lang, WORD_STRINGS["en"])[key].format(**values)
+
+
 SCREENSAVER_BACKGROUND = NAVY1       # = GUIConstants.BACKGROUND_COLOR #0A0E30
 
 

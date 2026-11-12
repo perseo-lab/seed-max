@@ -115,6 +115,12 @@ class View:
             Instantiates the provided Screen_cls and runs its interactive display.
             Returns the user's input upon completion.
         """
+        # Seed Max (0034): the seed words are typed on the AKC keyboard and reviewed all
+        # together; SeedMnemonicEntryView itself is unchanged (views/seedmax_words.py)
+        from seedsigner.views import seedmax_words
+        if seedmax_words.applies(self, Screen_cls):
+            return seedmax_words.run(self, kwargs)
+
         self.screen = Screen_cls(**kwargs)
         return self.screen.display()
 
