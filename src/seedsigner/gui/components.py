@@ -1094,6 +1094,71 @@ class FormattedAddress(BaseComponent):
 
 
 @dataclass
+class SeedMaxGroupedAddress(BaseComponent):
+    """
+    Seed Max (0033): the WHOLE address in groups of 4 characters, never truncated (decision
+    of 12 Nov 2026). The first two and the last two groups in the accent colour, the rest in
+    white, fixed-width font, at most GROUPS_PER_LINE groups per line, lines centred.
+
+        bc1q fe4x xxxx xxxx xxxx xxxx
+        xxxx xxxx xxxx 099v w0f
+
+    `lines` keeps (text, groups) per line: the groups joined give back the address exactly
+    (tests/seedmax_identity.py checks it for every address type).
+    """
+    width: int = 0
+    screen_x: int = 0
+    screen_y: int = 0
+    address: str = None
+    font_size: int = 24
+    GROUP = 4
+    GROUPS_PER_LINE = 6
+    HIGHLIGHT = 2                   # groups lit at each end
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.width == 0:
+            self.width = self.renderer.canvas_width
+        self.font = Fonts.get_font(GUIConstants.FIXED_WIDTH_EMPHASIS_FONT_NAME, self.font_size)
+        left, top, right, bottom = self.font.getbbox("Q")
+        self.char_width = right - left
+        self.line_height = (bottom - top) + 10
+        groups = [self.address[i:i + self.GROUP] for i in range(0, len(self.address), self.GROUP)]
+        self.groups = groups
+        per_line = self.GROUPS_PER_LINE
+        if len(groups) > 3 * per_line:
+            # longer than any address from a seed (P2WSH/P2TR: 62-64): smaller, 8 per line,
+            # so it still takes at most 3 lines and stays above the texts and the button
+            per_line = 8
+            self.font = Fonts.get_font(GUIConstants.FIXED_WIDTH_EMPHASIS_FONT_NAME, self.font_size - 4)
+            left, top, right, bottom = self.font.getbbox("Q")
+            self.char_width = right - left
+            self.line_height = (bottom - top) + 8
+        while per_line > 1 and (per_line * (self.GROUP + 1) - 1) * self.char_width > self.width:
+            per_line -= 1
+        self.lines = [groups[i:i + per_line] for i in range(0, len(groups), per_line)]
+        self.height = len(self.lines) * self.line_height
+        n = len(groups)
+        self.text_params = []
+        index = 0
+        for li, line in enumerate(self.lines):
+            text = " ".join(line)
+            x = self.screen_x + int((self.width - len(text) * self.char_width) / 2)
+            for g in line:
+                lit = index < self.HIGHLIGHT or index >= n - self.HIGHLIGHT
+                color = GUIConstants.ACCENT_COLOR if lit else GUIConstants.BODY_FONT_COLOR
+                self.text_params.append(((x, li * self.line_height), g, color))
+                x += (len(g) + 1) * self.char_width
+                index += 1
+
+
+    def render(self):
+        for (x, y), text, color in self.text_params:
+            self.image_draw.text((x, y + self.screen_y), text=text, fill=color, font=self.font)
+
+
+
+@dataclass
 class BtcAmount(BaseComponent):
     """
         Display btc value based on the SETTING__BTC_DENOMINATION Setting:

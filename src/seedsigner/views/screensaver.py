@@ -288,9 +288,22 @@ class ScreensaverScreen(LogoScreen):
 
         self.buttons = buttons
 
+        # Seed Max (0033): "SEED MAX" bounces on night blue instead of SeedSigner's logo
+        # on black. Same timing and same exit (any input); if the logo can't be drawn,
+        # SeedSigner's own is kept.
+        background = (0, 0, 0)
+        from seedsigner.hardware import hw_profile
+        if hw_profile.is_max_profile():
+            try:
+                from seedsigner.gui import seedmax
+                self.logo = seedmax.screensaver_logo()
+                background = seedmax.SCREENSAVER_BACKGROUND
+            except Exception as e:
+                logger.exception(f"Seed Max screensaver logo failed, SeedSigner's instead: {e}")
+
         # Paste the logo in a bigger image that is the canvas + the logo dims (half the
         # logo will render off the canvas at each edge).
-        self.image = Image.new("RGB", (self.renderer.canvas_width + self.logo.width, self.renderer.canvas_height + self.logo.height), (0,0,0))
+        self.image = Image.new("RGB", (self.renderer.canvas_width + self.logo.width, self.renderer.canvas_height + self.logo.height), background)
 
         # Place the logo centered on the larger image
         logo_x = int((self.image.width - self.logo.width) / 2)

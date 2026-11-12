@@ -1778,11 +1778,20 @@ class SeedAddressVerificationSuccessScreen(LargeIconStatusScreen):
             # TRANSLATOR_NOTE: Describes the address type (change or receive)
             address_type = _("receive address")
 
-        self.components.append(FormattedAddress(
-            screen_y=self.components[-1].screen_y + self.components[-1].height + GUIConstants.COMPONENT_PADDING,
-            address=self.address,
-            max_lines=1,  # Use abbreviated format w/ellipsis
-        ))
+        from seedsigner.hardware import hw_profile
+        if hw_profile.is_max_profile():
+            # Seed Max (0033): the whole address, in groups of 4, never "bc1qfe4...099vw0f"
+            from seedsigner.gui.components import SeedMaxGroupedAddress
+            self.components.append(SeedMaxGroupedAddress(
+                screen_y=self.components[-1].screen_y + self.components[-1].height + GUIConstants.COMPONENT_PADDING,
+                address=self.address,
+            ))
+        else:
+            self.components.append(FormattedAddress(
+                screen_y=self.components[-1].screen_y + self.components[-1].height + GUIConstants.COMPONENT_PADDING,
+                address=self.address,
+                max_lines=1,  # Use abbreviated format w/ellipsis
+            ))
 
         self.components.append(TextArea(
             text=address_type,

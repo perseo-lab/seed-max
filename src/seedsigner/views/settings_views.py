@@ -33,6 +33,13 @@ class SettingsMenuView(View):
         settings_entries = SettingsDefinition.get_settings_entries(
             visibility=self.visibility
         )
+
+        # Seed Max (0033): the language is chosen on the splash (chips, this session
+        # only), so Settings has no "Language" entry
+        from seedsigner.hardware import hw_profile
+        if hw_profile.is_max_profile():
+            settings_entries = [e for e in settings_entries if e.attr_name != SettingsConstants.SETTING__LOCALE]
+
         button_data: list[ButtonOption] = [ButtonOption(e.display_name) for e in settings_entries]
 
         selected_button = 0

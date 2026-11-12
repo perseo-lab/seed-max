@@ -184,30 +184,45 @@ def test_language_chips():
         check(drawn[2] - drawn[0] >= 40 and touch[3] - touch[1] >= 34, f"{code}: big enough for a stylus or finger")
     start = s.start_rect()
     check(all(t[3] < start[1] for _c, _d, t in rects), "chip zones far from START")
+    left, right = rects[0][1][0], rects[-1][1][2]
+    check(abs(left - (480 - right)) <= 1, f"0033: chips centred ({left} px left, {480 - right} px right)")
+    check(all(rects[i][1][0] - rects[i - 1][1][2] >= 8 for i in range(1, len(rects))), "0033: at least 8 px between chips")
+    check(max(t[3] for _c, _d, t in rects) < seedmax.WORDMARK_Y[0], "chip tap zones end above \"SEED MAX\"")
+    order = [seedmax.CHIP_TOP + seedmax.CHIP_H, seedmax.WORDMARK_Y[0], seedmax.WORDMARK_Y[1], seedmax.DEVICE_CY,
+             seedmax.FEATURES_Y[0], seedmax.FEATURES_Y[1], seedmax.GUARANTEE[1], seedmax.GUARANTEE[3], start[1]]
+    check(all(b - a >= 8 for a, b in zip(order, order[1:])), f"0033: the blocks are stacked with air between: {order}")
 
 
 def test_texts_fit():
+    """ every text fits its space, and (0033) none shrinks below a readable size """
     d = ImageDraw.Draw(Image.new("RGB", (480, 320)))
     mono = lambda size: seedmax_font("Inconsolata-SemiBold", size)
+    semi = lambda n: seedmax_font("OpenSans-SemiBold", n)
+    mono_r = lambda n: seedmax_font("Inconsolata-Regular", n)
+    inner = seedmax.GUARANTEE_INNER
     for lang in seedmax.STRINGS:
-        for key in ("g1", "g2", "foot"):
-            text = seedmax.text(lang, key)
-            if key == "g1":
-                font_loader, size, width = lambda n: seedmax_font("OpenSans-SemiBold", n), 13, 400 - 34 - 8
-            elif key == "g2":
-                font_loader, size, width = lambda n: seedmax_font("Inconsolata-Regular", n), 11, 400 - 34 - 8
-            else:
-                font_loader, size, width = lambda n: seedmax_font("Inconsolata-Regular", n), 12, 480 - 16
-            f = seedmax.fit(d, text, font_loader, size, width)
-            check(d.textlength(text, font=f) <= width and f.size >= 9, f"{lang} {key}: fits at {f.size} px")
-        for label in seedmax.text(lang, "chips"):
-            f = seedmax.fit(d, label, mono, 12, 112)
-            check(d.textlength(label, font=f) <= 112, f"{lang} chip {label!r} fits")
+        lines = [("g1", seedmax.text(lang, "g1"), semi, seedmax.G1_SIZE, inner, 15)]
+        g2 = seedmax.guarantee_lines(lang)
+        check(len(g2) == 2 and " ".join(g2) == seedmax.text(lang, "g2").replace(" · ", " "),
+              f"{lang}: second guarantee line split in two, nothing lost")
+        lines += [("g2", line, mono_r, seedmax.G2_SIZE, inner, 13) for line in g2]
+        lines.append(("foot", seedmax.text(lang, "foot"), mono_r, seedmax.FOOTER_SIZE, 480 - 16, 12))
+        lines += [("chip", label, mono, seedmax.FEATURE_SIZE, seedmax.FEATURE_W - 10, 15)
+                  for label in seedmax.text(lang, "chips")]
+        for key, text, loader, size, width, minimum in lines:
+            f = seedmax.fit(d, text, loader, size, width)
+            check(d.textlength(text, font=f) <= width and f.size >= minimum,
+                  f"{lang} {key} {text[:24]!r}: fits at {f.size} px (min {minimum})")
         rect = seedmax.start_rect(d, seedmax.text(lang, "start"), mono)
-        check(rect[0] >= 40 and rect[2] <= 440, f"{lang} START button inside the screen: {rect}")
+        check(rect[0] >= 40 and rect[2] <= 440 and rect[1] > seedmax.GUARANTEE[3],
+              f"{lang} START button inside the screen, below the guarantee: {rect}")
         check("{" not in seedmax.text(lang, "g1") + seedmax.text(lang, "foot"), f"{lang}: versions filled in")
         check(seedmax.BASE_VERSION in seedmax.text(lang, "g1") and seedmax.SEEDMAX_VERSION in seedmax.text(lang, "foot"),
               f"{lang}: guarantee names SeedSigner {seedmax.BASE_VERSION}, footer v{seedmax.SEEDMAX_VERSION}")
+    xs = [seedmax.W / 2 + (i - 1) * seedmax.FEATURE_STEP for i in range(3)]
+    check(xs[0] - seedmax.FEATURE_W / 2 >= 8 and xs[2] + seedmax.FEATURE_W / 2 <= seedmax.W - 8
+          and seedmax.FEATURE_STEP > seedmax.FEATURE_W, "the three feature chips inside the screen, apart")
+    check(seedmax.FEATURES_Y[1] < seedmax.GUARANTEE[1], "feature chips above the guarantee box")
 
 
 def seedmax_font(name, size):
@@ -437,6 +452,139 @@ def test_donation():
     check(v.run().View_cls is SeedMaxDonateQRView, "Donate > Show QR opens the QR")
     v.run_screen = lambda cls, **kw: -1
     check(v.run().View_cls.__name__ == "SettingsMenuView", "Donate > back: Settings")
+
+
+def test_screensaver():
+    """ 0033: "SEED MAX" bounces on night blue; SeedSigner's logo outside the Max profile """
+    from seedsigner.views.screensaver import ScreensaverScreen
+    buttons = MagicMock()
+    s = ScreensaverScreen(buttons)
+    navy = rgb(GUIConstants.BACKGROUND_COLOR)
+    check(seedmax.SCREENSAVER_BACKGROUND == navy, "background = the Seed Max background")
+    check(s.logo.size == seedmax.screensaver_logo().size, f"the Seed Max logo ({s.logo.size})")
+    corners = [s.image.getpixel(p) for p in ((0, 0), (s.image.width - 1, s.image.height - 1))]
+    check(all(c == navy for c in corners), f"night blue around the logo: {corners}")
+    x0 = (s.image.width - s.logo.width) // 2
+    y0 = (s.image.height - s.logo.height) // 2
+    window = s.image.crop((x0, y0, x0 + s.logo.width, y0 + s.logo.height))
+    cyan = sum(1 for p in window.getdata() if p[1] > 180 and p[2] > 160)
+    check(cyan > 1500, f"the neon wordmark in the middle ({cyan} cyan pixels)")
+    edge = [window.getpixel((window.width - 1 - dx, y)) for dx in range(2) for y in range(window.height)]
+    check(all(p == navy for p in edge), "the X is whole: nothing lit on the logo's right edge")
+    # same behaviour: any input stops it and the screen underneath comes back
+    buttons.has_any_input.side_effect = [False, False, True]
+    buttons.override_ind = False
+    R.disp.show_image.reset_mock()
+    before = R.shows
+    s.start()
+    check(R.disp.show_image.call_count == 2 and R.shows == before + 1 and not s.is_running,
+          f"bounces until a touch, then restores the screen ({R.disp.show_image.call_count} frames)")
+    frame = R.disp.show_image.call_args_list[0][0][0]
+    check(frame.size == (480, 320), f"each frame is exactly the screen ({frame.size})")
+    with patch.object(hw_profile, "is_max_profile", lambda: False):
+        std = ScreensaverScreen(MagicMock())
+    check(std.logo.size == (240, 240) and std.image.getpixel((0, 0)) == (0, 0, 0),
+          "standard profile: SeedSigner's logo on black")
+    with patch.object(seedmax, "screensaver_logo", side_effect=RuntimeError("boom")):
+        broken = ScreensaverScreen(MagicMock())
+    check(broken.logo.size == (240, 240), "if the Seed Max logo fails: SeedSigner's, never no screensaver")
+
+
+def test_no_language_in_settings():
+    """ 0033: the language comes from the splash chips; Settings has no Language entry """
+    from seedsigner.views.settings_views import SettingsMenuView
+    seen = {}
+
+    def run(view):
+        def fake(cls, **kw):
+            seen.clear()
+            seen.update(kw)
+            return -1
+        view.run_screen = fake
+        view.screen = MagicMock()
+        view.run()
+        return [b.button_label for b in seen["button_data"]]
+
+    labels = run(SettingsMenuView())
+    check(bool(labels) and "Language" not in labels,
+          f"Max: no Language in Settings ({labels})")
+    for vis in (SettingsConstants.VISIBILITY__ADVANCED, SettingsConstants.VISIBILITY__HARDWARE):
+        check("Language" not in run(SettingsMenuView(visibility=vis)), f"... nor in {vis}")
+    # the entries list and the buttons still line up: each choice opens its own entry
+    v = SettingsMenuView()
+    v.run_screen = lambda cls, **kw: 0
+    v.screen = MagicMock()
+    dest = v.run()
+    check(labels[0] == "Denomination display" and dest.view_args.get("attr_name") == SettingsConstants.SETTING__BTC_DENOMINATION,
+          f"first button opens its own entry ({labels[0]} -> {dest.view_args.get('attr_name')})")
+    with patch.object(hw_profile, "is_max_profile", lambda: False):
+        check("Language" in run(SettingsMenuView()), "standard profile keeps Settings > Language")
+
+
+def sample_addresses():
+    """ one real address per type and network, from a fixed key """
+    from embit import script
+    from embit.ec import PrivateKey
+    from embit.networks import NETWORKS
+    key = PrivateKey(bytes(range(1, 33)))
+    pub = key.get_public_key()
+    multi = script.multisig(2, [pub, PrivateKey(bytes(range(2, 34))).get_public_key(), PrivateKey(bytes(range(3, 35))).get_public_key()])
+    out = {}
+    for net in ("main", "test", "regtest"):
+        n = NETWORKS[net]
+        out[f"{net} p2wpkh"] = script.p2wpkh(pub).address(n)
+        out[f"{net} p2wsh"] = script.p2wsh(multi).address(n)
+        out[f"{net} p2tr"] = script.p2tr(pub).address(n)
+        out[f"{net} p2sh-p2wpkh"] = script.p2sh(script.p2wpkh(pub)).address(n)
+        out[f"{net} p2pkh"] = script.p2pkh(pub).address(n)
+    return out
+
+
+def test_verified_address_whole():
+    """ 0033: Address Verified shows the whole address in groups of 4, nothing cut """
+    from seedsigner.gui.components import FormattedAddress, SeedMaxGroupedAddress
+    from seedsigner.gui.screens.seed_screens import SeedAddressVerificationSuccessScreen
+    set_locale("en")
+    lengths = set()
+    for name, address in sample_addresses().items():
+        lengths.add(len(address))
+        s = SeedAddressVerificationSuccessScreen(address=address, verified_index=8, verified_index_is_change=False)
+        with R.lock:
+            s._render()
+        comp = [c for c in s.components if isinstance(c, SeedMaxGroupedAddress)]
+        check(len(comp) == 1 and not any(isinstance(c, FormattedAddress) for c in s.components),
+              f"{name}: the grouped address, not SeedSigner's abbreviated one")
+        a = comp[0]
+        drawn = [p[1] for p in a.text_params]
+        check("".join(drawn) == address and all(len(g) == 4 for g in drawn[:-1]) and "..." not in "".join(drawn),
+              f"{name} ({len(address)} chars): every character drawn, groups of 4")
+        lit = [p[1] for p in a.text_params if p[2] == GUIConstants.ACCENT_COLOR]
+        check(lit == drawn[:2] + drawn[-2:], f"{name}: first two and last two groups lit")
+        right = max(p[0][0] + len(p[1]) * a.char_width for p in a.text_params)
+        left = min(p[0][0] for p in a.text_params)
+        texts = [c for c in s.components if c.__class__.__name__ == "TextArea"]
+        below = [t for t in texts if t.screen_y > a.screen_y]
+        bottom = max(t.screen_y + t.height for t in below)
+        check(left >= 0 and right <= 480 and below and below[0].screen_y >= a.screen_y + a.height
+              and bottom < component_rect(s.buttons[0])[1],
+              f"{name}: inside the screen, above \"receive address\", index and OK (bottom {bottom})")
+    check({34, 35, 42, 44, 62, 64} <= lengths, f"address lengths covered: {sorted(lengths)}")
+    # review finding L3: longer than any seed address (witness v2+, up to 90): still 3 lines, nothing lost
+    for n in (66, 74, 90):
+        address = ("bcrt1z" + "qpzry9x8gf2tvdw0s3jn54khce6mua7l" * 3)[:n]
+        s = SeedAddressVerificationSuccessScreen(address=address, verified_index=8, verified_index_is_change=True)
+        with R.lock:
+            s._render()
+        a = [c for c in s.components if isinstance(c, SeedMaxGroupedAddress)][0]
+        texts = [c for c in s.components if c.__class__.__name__ == "TextArea" and c.screen_y > a.screen_y]
+        bottom = max(t.screen_y + t.height for t in texts)
+        right = max(p[0][0] + len(p[1]) * a.char_width for p in a.text_params)
+        check("".join(p[1] for p in a.text_params) == address and len(a.lines) <= 3 and right <= 480
+              and bottom < component_rect(s.buttons[0])[1], f"{n} chars: whole, {len(a.lines)} lines, above OK (bottom {bottom})")
+    with patch.object(hw_profile, "is_max_profile", lambda: False):
+        s = SeedAddressVerificationSuccessScreen(address=sample_addresses()["main p2wpkh"], verified_index=0,
+                                                 verified_index_is_change=False)
+    check(any(isinstance(c, FormattedAddress) for c in s.components), "standard profile: SeedSigner's own format")
 
 
 def home():

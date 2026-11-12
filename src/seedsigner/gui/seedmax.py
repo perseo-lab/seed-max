@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw
 # Seed Max version shown on the splash, and the SeedSigner release whose signing code it
 # carries unchanged. tests/test_seedmax_identity.py checks BASE_VERSION against Controller.VERSION
 # and the signing files against that release, so the guarantee line can't go stale.
-SEEDMAX_VERSION = "5.7"
+SEEDMAX_VERSION = "5.8"
 BASE_VERSION = "0.8.7"
 
 # Palette (same family as the Anti-Klepto Check SD, by Ollen's choice of 12 Nov 2026)
@@ -95,7 +95,9 @@ def wordmark(height: int) -> Image.Image:
     if height not in _wordmark_cache:
         gh = height
         gw, gap, space = round(gh * .72), max(2, round(gh * .22)), round(gh * .55)
-        width = int(word_width(gw, gap, space)) + 12
+        # word_width() leaves out the gap before the space that word_paths() adds:
+        # without it the X lost its right edge (0033)
+        width = int(word_width(gw, gap, space)) + gap + 12
         img = Image.new("RGBA", (width, gh + 12), (0, 0, 0, 0))
         neon(img, word_paths(6, 6, gh, gw, gap, space), 2, glow=2)
         _wordmark_cache[height] = img
@@ -160,6 +162,21 @@ DONATE_STRINGS = {
 }
 
 
+SCREENSAVER_BACKGROUND = NAVY1       # = GUIConstants.BACKGROUND_COLOR #0A0E30
+
+
+def screensaver_logo(height: int = 44) -> Image.Image:
+    """
+    Seed Max (0033): what bounces around in the screensaver, in place of SeedSigner's logo.
+    The neon wordmark on the night-blue background, opaque (the screensaver pastes it on
+    a larger night-blue canvas and slides a screen-sized window over it).
+    """
+    mark = wordmark(height)
+    img = Image.new("RGBA", mark.size, NAVY1 + (255,))
+    img.alpha_composite(mark)
+    return img.convert("RGB")
+
+
 def donate_text(lang: str, key: str) -> str:
     return DONATE_STRINGS.get(lang, DONATE_STRINGS["en"])[key]
 
@@ -176,19 +193,27 @@ def text(lang: str, key: str):
 # ---------------------------------------------------------------------------------------
 W, H = 480, 320
 HORIZON = 184
-CHIP_W, CHIP_H, CHIP_GAP, CHIP_TOP = 40, 24, 4, 4
-CHIP_TOUCH_BOTTOM = 34                     # the tap zone reaches below the drawn chip
+CHIP_W, CHIP_H, CHIP_GAP, CHIP_TOP = 42, 24, 8, 6     # 0033: centred, more space between
+CHIP_TOUCH_BOTTOM = 35                     # the tap zone reaches below the drawn chip
 START = (160, 245, 320, 279)               # widened for long words, see start_rect()
-GUARANTEE = (40, 196, 440, 230)
-FEATURES_Y = (132, 154)
-FOOTER_CY = 307
-STARLESS_BAND = (100, 162)                 # "SIGNING DEVICE" and the three chips
+# 0033: bigger texts, Ollen found them too small on the 3.5" panel. The guarantee box
+# spans the screen and its second line is split in two at " · ".
+GUARANTEE = (14, 164, 466, 236)
+G1_SIZE, G2_SIZE = 17, 14
+GUARANTEE_INNER = GUARANTEE[2] - (GUARANTEE[0] + 34) - 8
+WORDMARK_Y = (42, 90)
+DEVICE_CY = 108
+FEATURES_Y = (124, 152)
+FEATURE_W, FEATURE_STEP, FEATURE_SIZE = 140, 150, 16
+FOOTER_CY = 306
+FOOTER_SIZE = 13
+STARLESS_BAND = (96, 156)                  # "SIGNING DEVICE" and the three chips
 
 
 def chip_rects(languages) -> list:
-    """ (code, drawn rect, touch rect), right-aligned at the top """
+    """ (code, drawn rect, touch rect), centred at the top (0033; they were right-aligned) """
     n = len(languages)
-    x = W - 8 - n * CHIP_W - (n - 1) * CHIP_GAP
+    x = round((W - n * CHIP_W - (n - 1) * CHIP_GAP) / 2)
     out = []
     for code in languages:
         drawn = (x, CHIP_TOP, x + CHIP_W, CHIP_TOP + CHIP_H)
@@ -241,8 +266,9 @@ def splash_background() -> Image.Image:
     neon(img, [[(-10, 300), (130, 300), (182, 234), (230, 192)]], 3, glow=2)
     neon(img, [[(490, 270), (362, 270), (300, 218), (254, 194)]], 3, color=TRAIL_BLUE, glow=2)
 
-    gw, gh, gap, space = 40, 56, 11, 30
-    x0, y0 = (W - word_width(gw, gap, space)) / 2, 36
+    # 0033: a little smaller and lower, to leave air under the centred language chips
+    gw, gh, gap, space = 37, WORDMARK_Y[1] - WORDMARK_Y[0], 10, 28
+    x0, y0 = (W - word_width(gw, gap, space) - gap) / 2, WORDMARK_Y[0]
     paths = word_paths(x0, y0, gh, gw, gap, space)
     neon(img, paths, 6)
     refl = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -285,6 +311,11 @@ def start_rect(draw, label: str, mono) -> tuple:
     return (int(cx - width / 2), START[1], int(cx + width / 2), START[3])
 
 
+def guarantee_lines(lang: str) -> list:
+    """ The guarantee's second line, split at " · " (0033) """
+    return [part.strip() for part in text(lang, "g2").split(" · ")]
+
+
 def check_mark(draw, x, y, r=8, color=CYAN):
     draw.ellipse((x - r, y - r, x + r, y + r), outline=color, width=2)
     draw.line(((x - r * .45, y), (x - r * .1, y + r * .4), (x + r * .5, y - r * .4)), fill=color, width=2)
@@ -317,20 +348,22 @@ def render_splash(lang: str, languages, fonts, start_pressed: bool = False, lit:
     f = mono(14)
     while spaced_width(d, device, f, spacing) > W - 40 and spacing > 1:
         spacing -= 1
-    draw_spaced(d, W / 2, 114, device, f, CYAN, spacing)
+    draw_spaced(d, W / 2, DEVICE_CY, device, f, CYAN, spacing)
 
     for i, label in enumerate(text(lang, "chips")):
-        x = W / 2 + (i - 1) * 132
-        d.rounded_rectangle((x - 60, FEATURES_Y[0], x + 60, FEATURES_Y[1]), radius=4, fill=CHIP_FILL,
-                            outline=CHIP_EDGE)
-        d.text((x, sum(FEATURES_Y) / 2), label, font=fit(d, label, mono, 12, 112), fill=WHITE, anchor="mm")
+        x = W / 2 + (i - 1) * FEATURE_STEP
+        d.rounded_rectangle((x - FEATURE_W / 2, FEATURES_Y[0], x + FEATURE_W / 2, FEATURES_Y[1]), radius=5,
+                            fill=CHIP_FILL, outline=CHIP_EDGE)
+        d.text((x, sum(FEATURES_Y) / 2), label, font=fit(d, label, mono, FEATURE_SIZE, FEATURE_W - 10),
+               fill=WHITE, anchor="mm")
 
     bx0, by0, bx1, by1 = GUARANTEE
     check_mark(d, bx0 + 18, (by0 + by1) / 2)
-    inner = bx1 - (bx0 + 34) - 8
-    g1, g2 = text(lang, "g1"), text(lang, "g2")
-    d.text((bx0 + 34, by0 + 11), g1, font=fit(d, g1, semi, 13, inner), fill=WHITE, anchor="lm")
-    d.text((bx0 + 34, by0 + 25), g2, font=fit(d, g2, mono_r, 11, inner), fill=DIM, anchor="lm")
+    g1 = text(lang, "g1")
+    d.text((bx0 + 34, by0 + 16), g1, font=fit(d, g1, semi, G1_SIZE, GUARANTEE_INNER), fill=WHITE, anchor="lm")
+    for i, line in enumerate(guarantee_lines(lang)):
+        d.text((bx0 + 34, by0 + 39 + i * 19), line, font=fit(d, line, mono_r, G2_SIZE, GUARANTEE_INNER),
+               fill=DIM, anchor="lm")
 
     label = text(lang, "start")
     rect = start_rect(d, label, mono)
@@ -355,5 +388,5 @@ def render_splash(lang: str, languages, fonts, start_pressed: bool = False, lit:
     d.polygon(((ax, cy - 7), (ax + 10, cy), (ax, cy + 7)), fill=arrow_color)
 
     foot = text(lang, "foot")
-    d.text((W / 2, FOOTER_CY), foot, font=fit(d, foot, mono_r, 12, W - 16), fill=(200, 215, 255), anchor="mm")
+    d.text((W / 2, FOOTER_CY), foot, font=fit(d, foot, mono_r, FOOTER_SIZE, W - 16), fill=(200, 215, 255), anchor="mm")
     return img.convert("RGB")
