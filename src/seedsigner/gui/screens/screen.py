@@ -1176,6 +1176,9 @@ class QRDisplayScreen(BaseScreen):
         qr_size = min(self.canvas_width, self.canvas_height)
         self.touch_controls = hw_profile.is_max_profile() and (self.canvas_width - qr_size) // 2 >= self.CONTROLS_MIN_BAR_WIDTH
         self.done_hint_until = ThreadsafeCounter(initial_value=0)      # time.time_ns()
+        # Seed Max (0038): an animated (UR) QR gets a density button too
+        from seedsigner.models.encode_qr import BaseFountainQrEncoder
+        self.density_control = self.touch_controls and isinstance(self.qr_encoder, BaseFountainQrEncoder)
 
         self.threads.append(QRDisplayScreen.QRDisplayThread(
             qr_encoder=self.qr_encoder,
@@ -1224,6 +1227,8 @@ class QRDisplayScreen(BaseScreen):
     BRIGHTNESS_STEP = 31            # same steps as the joystick: 31..255
     BRIGHTNESS_LEVELS = 8
 
+    DENSITIES = (SettingsConstants.DENSITY__LOW, SettingsConstants.DENSITY__MEDIUM, SettingsConstants.DENSITY__HIGH)
+
     def control_rects(self) -> dict:
         """ On-screen (x1, y1, x2, y2) of each control, as drawn """
         w, h = self.canvas_width, self.canvas_height
@@ -1232,6 +1237,9 @@ class QRDisplayScreen(BaseScreen):
         third = (h - 2 * m) // 3
         done_top = (h - self.DONE_HEIGHT) // 2
         return {
+            # 0038 review: 20 px of dead space above Done's touch slop, so a low tap on the
+            # density button can't close the QR (a signed PSBT)
+            "density": (m, m, bar - m, done_top - self.DONE_TOUCH_SLOP - 20),
             "done": (m, done_top, bar - m, done_top + self.DONE_HEIGHT),
             "brighter": (w - bar + m, m, w - m, m + third - m),
             "meter": (w - bar + m, m + third, w - m, m + 2 * third - m),
@@ -1250,7 +1258,30 @@ class QRDisplayScreen(BaseScreen):
             return "brighter" if y < h / 2 else "darker"
         if x < bar and rect_contains(self.control_rects()["done"], x, y, margin=self.DONE_TOUCH_SLOP):
             return "done"
+        if x < bar and getattr(self, "density_control", False) and rect_contains(self.control_rects()["density"], x, y):
+            return "density"
         return None
+
+
+    def density_level(self) -> int:
+        """ 1 (low) .. 3 (high), the density of the QR on screen """
+        d = self.qr_encoder.qr_density
+        return self.DENSITIES.index(d) + 1 if d in self.DENSITIES else 2
+
+
+    def next_density(self):
+        """
+        Seed Max (0038): low -> medium -> high -> low. The same data, cut into bigger or
+        smaller frames: a new encoder with the same arguments and only the density changed,
+        shown from its first frame. The choice is kept for the next QR (setting, in RAM).
+        """
+        import dataclasses
+        from seedsigner.models.settings import Settings
+        density = self.DENSITIES[self.density_level() % len(self.DENSITIES)]
+        encoder = dataclasses.replace(self.qr_encoder, qr_density=density)
+        self.qr_encoder = encoder
+        self.threads[-1].qr_encoder = encoder
+        Settings.get_instance().set_value(SettingsConstants.SETTING__QR_DENSITY, density)
 
 
     def brightness_level(self) -> int:
@@ -1287,6 +1318,22 @@ class QRDisplayScreen(BaseScreen):
             fill = GUIConstants.BUTTON_FONT_COLOR if i < level else GUIConstants.INACTIVE_COLOR
             draw.rectangle((x1 + 14, int(top), x2 - 14, int(top + seg_h)), fill=fill)
 
+        # Seed Max (0038): density, above Done: "QR" and three bars, lit up to the level
+        if getattr(self, "density_control", False):
+            x1, y1, x2, y2 = rects["density"]
+            draw.rounded_rectangle((x1, y1, x2, y2), radius=8, fill=button_color)
+            small = Fonts.get_font(GUIConstants.get_button_font_name(), 16)
+            draw.text(((x1 + x2) // 2, y1 + 16), "QR", fill=symbol_color, font=small, anchor="mm")
+            level = self.density_level()
+            bw, gap = 10, 5
+            left = (x1 + x2) // 2 - (3 * bw + 2 * gap) // 2
+            bottom = y2 - 12
+            for i in range(3):
+                bh = 14 + i * 12
+                fill = GUIConstants.ACCENT_COLOR if i < level else GUIConstants.INACTIVE_COLOR
+                bx = left + i * (bw + gap)
+                draw.rectangle((bx, bottom - bh, bx + bw, bottom), fill=fill)
+
         # Done: highlighted for a moment after a tap on the QR code
         hinted = time.time_ns() < self.done_hint_until.cur_count
         x1, y1, x2, y2 = rects["done"]
@@ -1318,6 +1365,8 @@ class QRDisplayScreen(BaseScreen):
             return HardwareButtonsConstants.KEY_DOWN
         if zone == "done":
             return HardwareButtonsConstants.KEY_PRESS
+        if zone == "density":
+            return HardwareButtonsConstants.KEY_LEFT       # Seed Max (0038): see _run
         self.done_hint_until.set_value(time.time_ns() + self.DONE_HINT_NS)
         return None
 
@@ -1343,6 +1392,10 @@ class QRDisplayScreen(BaseScreen):
                 # Incrase QR code background brightness
                 self.qr_brightness.set_value(min(self.qr_brightness.cur_count + 31, 255))
                 self.tips_start_time.set_value(time.time_ns())
+
+            elif user_input == HardwareButtonsConstants.KEY_LEFT and getattr(self, "density_control", False):
+                # Seed Max (0038): the density button
+                self.next_density()
 
             elif user_input == HardwareButtonsConstants.OVERRIDE and getattr(self, "touch_controls", False):
                 # SeedSigner Max: a toast breaks the wait for input (`override_ind`). It is

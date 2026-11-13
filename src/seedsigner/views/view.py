@@ -121,6 +121,11 @@ class View:
         if seedmax_words.applies(self, Screen_cls):
             return seedmax_words.run(self, kwargs)
 
+        # Seed Max (0038): a BIP-85 child's words on one screen (views/seedmax_bip85.py)
+        from seedsigner.views import seedmax_bip85
+        if seedmax_bip85.applies(self, Screen_cls):
+            return seedmax_bip85.run(self, kwargs)
+
         # Seed Max (0036): menu entries the Max doesn't offer (views/seedmax_menus.py)
         from seedsigner.views import seedmax_menus
         if seedmax_menus.applies(self, kwargs):

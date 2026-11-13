@@ -232,6 +232,7 @@ class TestSeedFlows(FlowTest):
                         flowtest_standard_xpub(sig_tuple, script_tuple, xpub_qr_tuple)
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_export_xpub_disabled_not_available_flow(self):
         """
             If sig_type/script_type/xpub_qr_format disabled, then these options are not available

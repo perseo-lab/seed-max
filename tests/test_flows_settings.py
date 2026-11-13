@@ -1,3 +1,4 @@
+import pytest
 import os
 from typing import Callable
 
@@ -54,6 +55,7 @@ class TestSettingsFlows(FlowTest):
         assert os.path.exists(Settings.SETTINGS_FILENAME) == True
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test_multiselect(self):
         """
         Multiselect Settings options should stay in-place; requires BACK to exit. If no
@@ -165,10 +167,11 @@ class TestSettingsFlows(FlowTest):
                 load_settingsqr_into_decoder=load_persistent_settingsqr_into_decoder,
                 expected_setting_state=SettingsConstants.OPTION__DISABLED
             )
-            # 0032 review: a value that differs from the default is applied ("sigs=ss"; the
-            # default is single + multisig)...
-            assert SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__SIG_TYPES).default_value != ["ss"]
-            assert self.settings.get_value(SettingsConstants.SETTING__SIG_TYPES) == ["ss"]
+            # 0032 review: a value that differs from the default is applied ("sigs=ss" on
+            # SeedSigner; on the Max the sig types are fixed, see seedmax_identity.py)...
+            from seedsigner.hardware import hw_profile
+            if not hw_profile.is_max_profile():
+                assert self.settings.get_value(SettingsConstants.SETTING__SIG_TYPES) == ["ss"]
             # ... but 0036: a setting fixed on the Max is not ("camera=0"; the camera is mounted at 270)
             assert SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__CAMERA_ROTATION).default_value != 0
             assert self.settings.get_value(SettingsConstants.SETTING__CAMERA_ROTATION) \

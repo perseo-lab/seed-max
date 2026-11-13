@@ -1,3 +1,4 @@
+import pytest
 # Must import test base before the Controller
 from base import FlowTest, FlowStep
 
@@ -127,6 +128,7 @@ class TestToolsFlows(FlowTest):
         ])
 
 
+    @pytest.mark.usefixtures("seedsigner_settings_unlocked")  # Seed Max (0036), see conftest.py
     def test__address_explorer__back_button__flow(self):
         """
         Backing out of AddressExplorer behavior depends on current Settings:

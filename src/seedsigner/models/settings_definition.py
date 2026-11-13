@@ -920,6 +920,12 @@ def _seedmax_locked_settings() -> dict:
     locked[C.SETTING__ELECTRUM_SEEDS] = C.OPTION__ENABLED
     # 0037: BIP-85 child seeds from Tools (views/seedmax_tools.py) and in the seed options
     locked[C.SETTING__BIP85_CHILD_SEEDS] = C.OPTION__ENABLED
+    # 0038 (13 Nov 2026): the choices are offered where they're used (Export Xpub asks
+    # single sig or multisig, and the script type among SeedSigner's default ones: Native
+    # Segwit, Nested Segwit, Taproot; the SeedQR backup asks standard or compact)
+    locked[C.SETTING__SIG_TYPES] = [value for value, _name in C.ALL_SIG_TYPES]
+    locked[C.SETTING__SCRIPT_TYPES] = defaults[C.SETTING__SCRIPT_TYPES]
+    locked[C.SETTING__COMPACT_SEEDQR] = C.OPTION__ENABLED
     return locked
 
 
@@ -927,7 +933,8 @@ SEEDMAX_LOCKED_SETTINGS = _seedmax_locked_settings()
 
 # Hidden from the menus but not fixed: the camera zoom is changed by the zoom button of the
 # scan screen (0020), which keeps it for the next scan
-SEEDMAX_HIDDEN_SETTINGS = (SettingsConstants.SETTING__MAX_CAMERA_ZOOM,)
+# 0038: the QR density is changed on the QR screen itself (and kept for the next QR)
+SEEDMAX_HIDDEN_SETTINGS = (SettingsConstants.SETTING__MAX_CAMERA_ZOOM, SettingsConstants.SETTING__QR_DENSITY)
 
 
 def seedmax_locked_value(attr_name: str):

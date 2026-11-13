@@ -359,3 +359,62 @@ class SeedMaxWordEntryScreen(BaseTopNavScreen):
             with self.renderer.lock:
                 self._render()
                 self.renderer.show_image()
+
+
+@dataclass
+class SeedMaxChildWordsScreen(BaseTopNavScreen):
+    """
+    Seed Max (0038): the words of a BIP-85 child seed, all at once, numbered in columns as
+    on the backup sheet (12 words 3 x 4, 24 words 4 x 6), like the review of the typed words.
+    Title "Child #N", the parent's fingerprint above the button. Only "Done" or Back.
+    """
+    words: list = None
+    parent_fingerprint: str = ""
+    button_label: str = "Done"
+    lang: str = "en"
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.pending = None
+
+    def font(self, size, bold=True, mono=False):
+        if mono:
+            return Fonts.get_font("Inconsolata-SemiBold" if bold else "Inconsolata-Regular", size)
+        return Fonts.get_font("OpenSans-SemiBold" if bold else "OpenSans-Regular", size)
+
+    def _render(self):
+        super()._render()
+        d = self.image_draw
+        count = len(self.words)
+        _cols, _rows, _cw, _ch, size = grid(count)
+        f_num, f_word = self.font(size - 4, bold=False, mono=True), self.font(size, mono=True)
+        for i, word in enumerate(self.words):
+            rect = cell_rect(i, count)
+            d.rounded_rectangle(rect, radius=4, fill=PANEL, outline=GUIConstants.BUTTON_OUTLINE_COLOR)
+            cy = (rect[1] + rect[3]) / 2
+            d.text((rect[0] + 30, cy), f"{i + 1}", fill=GUIConstants.LABEL_FONT_COLOR, font=f_num, anchor="rm")
+            d.text((rect[0] + 36, cy), word, fill=GUIConstants.BODY_FONT_COLOR, font=f_word, anchor="lm")
+        d.text((W / 2, STATUS_Y), f"BIP-85 · {count} · {self.parent_fingerprint}", fill=GUIConstants.LABEL_FONT_COLOR,
+               font=self.font(15, bold=False, mono=True), anchor="mm")
+        d.rounded_rectangle(BUTTON, radius=6, fill=GUIConstants.ACCENT_COLOR)
+        d.text(((BUTTON[0] + BUTTON[2]) / 2, (BUTTON[1] + BUTTON[3]) / 2), self.button_label,
+               fill=GUIConstants.BACKGROUND_COLOR, font=self.font(20), anchor="mm")
+
+    def handle_touch(self, event: TouchEvent):
+        if not event.is_tap:
+            return None
+        if self.is_back_touch(event.x, event.y):
+            self.pending = "back"
+        elif inside(BUTTON, event.x, event.y, 3):
+            self.pending = "done"
+        else:
+            return None
+        return HardwareButtonsConstants.KEY_PRESS
+
+    def _run(self):
+        while True:
+            code = self.hw_inputs.wait_for(HardwareButtonsConstants.ALL_KEYS)
+            action, self.pending = self.pending, None
+            if code != HardwareButtonsConstants.KEY_PRESS or action is None:
+                continue
+            return RET_CODE__BACK_BUTTON if action == "back" else 0

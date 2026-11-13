@@ -700,12 +700,13 @@ def test_settings_fixed_on_the_max():
         settings.set_value(attr, value)
         check(settings.get_value(attr) == locked[attr], f"set_value can't move {attr}")
     _name, qr = Settings.parse_settingsqr("settings::v1 xpub_qr=spl xpub_details=D passphrase=R camera=0 "
-                                          "priv_warn=D dire_warn=D partners=E rgb_inv=E sigs=ss")
+                                          "priv_warn=D dire_warn=D partners=E rgb_inv=E sigs=ss scripts=nat "
+                                          "compact_seedqr=D bip85=D electrum=D denom=sats")
     settings.update(qr)
     check(all(settings.get_value(a) == v for a, v in locked.items()), "a SettingsQR can't move any of them")
-    check(settings.get_value(C.SETTING__SIG_TYPES) == ["ss"], "... while the rest of the QR is applied")
+    check(settings.get_value(C.SETTING__BTC_DENOMINATION) == "sats", "... while the rest of the QR is applied")
     settings.update({})
-    check(settings.get_value(C.SETTING__SIG_TYPES) == SettingsDefinition.get_settings_entry(C.SETTING__SIG_TYPES).default_value,
+    check(settings.get_value(C.SETTING__BTC_DENOMINATION) == SettingsDefinition.get_settings_entry(C.SETTING__BTC_DENOMINATION).default_value,
           "back to defaults")
 
     seen = {}
@@ -716,8 +717,7 @@ def test_settings_fixed_on_the_max():
         view.run()
         return [b.button_label for b in seen["button_data"]]
 
-    flat = ["Bitcoin network", "Denomination display", "QR code density", "Sig types", "Script types",
-            "Compact SeedQR", "Touch calibration", "Battery", "Donate"]
+    flat = ["Bitcoin network", "Denomination display", "Touch calibration", "Battery", "Donate"]
     with patch.object(hw_profile, "has_battery_gauge", lambda: True):
         for vis in (C.VISIBILITY__GENERAL, C.VISIBILITY__ADVANCED, C.VISIBILITY__HARDWARE):
             got = labels(SettingsMenuView(visibility=vis))
@@ -773,7 +773,7 @@ def test_message_signing_off_without_a_way_back():
     dest = v.run()
     check([b.button_label for b in seen["button_data"]] == ["Back to Main Menu"] and dest.View_cls.__name__ == "MainMenuView",
           f"only Back to Main Menu ({[b.button_label for b in seen['button_data']]})")
-    v = OptionDisabledView(settings_attr=SettingsConstants.SETTING__COMPACT_SEEDQR)
+    v = OptionDisabledView(settings_attr=SettingsConstants.SETTING__BTC_DENOMINATION)
     v.run_screen = lambda cls, **kw: (seen.update(kw), 0)[1]
     v.run()
     check(len(seen["button_data"]) == 2, "an option that isn't fixed still offers Update setting")
@@ -888,6 +888,69 @@ def test_load_seed_menu():
         with patch.object(seed_views, "ButtonListScreen", FakeScreen):
             dest = seed_views.LoadSeedView().run()
         check(dest.View_cls.__name__ == "BackStackView", f"choice {odd!r}: back, never Create a seed")
+
+
+def test_qr_density_on_the_qr_screen():
+    """ 0038: the density button on the QR screen: same data, bigger or smaller frames """
+    import base64
+    from embit.psbt import PSBT
+    from seedsigner.gui.screens.screen import QRDisplayScreen
+    from seedsigner.models.decode_qr import DecodeQR
+    from seedsigner.models.encode_qr import UrPsbtQrEncoder, GenericStaticQrEncoder
+    from seedsigner.hardware.buttons import HardwareButtonsConstants as K
+    from seedsigner.hardware.touch import TouchEvent
+    from seedsigner.models.settings_definition import SettingsDefinition
+    sys.path.insert(0, "tests")
+    from psbt_testing_util import PSBTTestData
+    C = SettingsConstants
+    check(SettingsDefinition.get_settings_entry(C.SETTING__QR_DENSITY).visibility == C.VISIBILITY__HIDDEN
+          and C.SETTING__QR_DENSITY not in __import__("seedsigner.models.settings_definition", fromlist=["x"]).SEEDMAX_LOCKED_SETTINGS,
+          "QR density: out of Settings, changeable from the QR screen")
+    raw = base64.b64decode(PSBTTestData.SINGLE_SIG_NATIVE_SEGWIT_1_INPUT)
+    psbt = PSBT.parse(raw)
+    settings = Settings.get_instance()
+    settings.set_value(C.SETTING__QR_DENSITY, C.DENSITY__MEDIUM)
+    s = QRDisplayScreen(qr_encoder=UrPsbtQrEncoder(psbt=psbt, qr_density=C.DENSITY__MEDIUM))
+    check(s.density_control and s.density_level() == 2, "animated PSBT QR: density button, medium")
+    r = s.control_rects()
+    dx, dy = (r["density"][0] + r["density"][2]) // 2, (r["density"][1] + r["density"][3]) // 2
+    check(s.handle_touch(TouchEvent(TouchEvent.TYPE__UP, dx, dy, tap=True)) == K.KEY_LEFT, "tap on it: the density key")
+    check(r["density"][3] < r["done"][1] and r["density"][2] < 480 - 80, "above Done, in the left bar")
+    gap_top, gap_bottom = r["density"][3] + 1, r["done"][1] - s.DONE_TOUCH_SLOP - 1
+    check(gap_bottom - gap_top >= 18 and all(s.touch_zone(40, y) is None for y in range(gap_top, gap_bottom + 1)),
+          f"dead space between density and Done: y {gap_top}..{gap_bottom} (a low tap never closes the QR)")
+    lengths = {}
+    for expected in (C.DENSITY__HIGH, C.DENSITY__LOW, C.DENSITY__MEDIUM):
+        s.next_density()
+        enc = s.qr_encoder
+        check(enc.qr_density == expected and s.threads[-1].qr_encoder is enc and settings.get_value(C.SETTING__QR_DENSITY) == expected,
+              f"next: {expected}, shown and kept for the next QR")
+        dec = DecodeQR()
+        for _ in range(500):
+            dec.add_data(enc.next_part())
+            if dec.is_complete:
+                break
+        check(dec.is_complete and dec.get_psbt().serialize() == raw, f"{expected}: decodes to exactly the same PSBT")
+        lengths[expected] = len(enc.cur_part())
+    check(lengths[C.DENSITY__LOW] < lengths[C.DENSITY__MEDIUM] < lengths[C.DENSITY__HIGH], f"frame sizes {lengths}")
+    # the frame shows the button
+    img = Image.new("RGB", (480, 320), rgb(GUIConstants.BACKGROUND_COLOR))
+    s.render_touch_controls(img)
+    lit = sum(1 for x in range(r["density"][0], r["density"][2]) for y in range(r["density"][1], r["density"][3])
+              if img.getpixel((x, y))[:3] == rgb(GUIConstants.ACCENT_COLOR))
+    check(lit > 50, f"density bars drawn ({lit} accent pixels)")
+    # the screen's loop: the density key changes it and the QR stays up; only Done closes
+    before = s.qr_encoder.qr_density
+    s.hw_inputs = MagicMock()
+    s.hw_inputs.wait_for.side_effect = [K.KEY_LEFT, K.KEY_UP, K.KEY_PRESS]
+    s.threads[-1] = MagicMock()
+    s.threads[-1].is_alive.return_value = False
+    s._run()
+    check(s.qr_encoder.qr_density != before and s.hw_inputs.wait_for.call_count == 3 and s.threads[-1].stop.called,
+          "density key: changed, still on screen; Done: closed")
+    static = QRDisplayScreen(qr_encoder=GenericStaticQrEncoder(data=seedmax.DONATION_BOLT12))
+    check(not static.density_control and static.touch_zone(dx, dy) is None, "a static QR (donation): no density button")
+    settings.set_value(C.SETTING__QR_DENSITY, C.DENSITY__MEDIUM)
 
 
 def home():
