@@ -10,6 +10,12 @@ from seedsigner.views import scan_views, seed_views, tools_views
 
 
 
+
+# Seed Max (0037): on the Max, Home > Tools opens the Max's own Tools menu (same entries)
+from seedsigner.hardware import hw_profile as _hw
+from seedsigner.views.seedmax_tools import SeedMaxToolsMenuView as _MaxTools
+TOOLS_MENU = _MaxTools if _hw.is_max_profile() else tools_views.ToolsMenuView
+
 class TestToolsFlows(FlowTest):
 
     def test__address_explorer__flow(self):
@@ -23,7 +29,7 @@ class TestToolsFlows(FlowTest):
 
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-            FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.ADDRESS_EXPLORER),
+            FlowStep(TOOLS_MENU, button_data_selection=TOOLS_MENU.ADDRESS_EXPLORER),
             FlowStep(tools_views.ToolsAddressExplorerSelectSourceView, screen_return_value=0),  # ret 1st onboard seed
             FlowStep(seed_views.SeedExportXpubScriptTypeView, button_data_selection=ButtonOption(SettingsDefinition.get_settings_entry(SettingsConstants.SETTING__SCRIPT_TYPES).get_selection_option_display_name_by_value(SettingsConstants.NATIVE_SEGWIT), return_data=SettingsConstants.NATIVE_SEGWIT)),
             FlowStep(tools_views.ToolsAddressExplorerAddressTypeView, button_data_selection=tools_views.ToolsAddressExplorerAddressTypeView.RECEIVE),
@@ -45,7 +51,7 @@ class TestToolsFlows(FlowTest):
         # Finalize the new seed w/out passphrase
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-            FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.ADDRESS_EXPLORER),
+            FlowStep(TOOLS_MENU, button_data_selection=TOOLS_MENU.ADDRESS_EXPLORER),
             FlowStep(tools_views.ToolsAddressExplorerSelectSourceView, button_data_selection=tools_views.ToolsAddressExplorerSelectSourceView.SCAN_SEED),
             FlowStep(scan_views.ScanSeedQRView, before_run=load_seed_into_decoder),  # simulate read SeedQR
             FlowStep(seed_views.SeedFinalizeView, button_data_selection=seed_views.SeedFinalizeView.FINALIZE),
@@ -81,7 +87,7 @@ class TestToolsFlows(FlowTest):
 
         sequence = [
             FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-            FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.ADDRESS_EXPLORER),
+            FlowStep(TOOLS_MENU, button_data_selection=TOOLS_MENU.ADDRESS_EXPLORER),
             FlowStep(tools_views.ToolsAddressExplorerSelectSourceView, button_data_selection=tools_views.ToolsAddressExplorerSelectSourceView.TYPE_ELECTRUM),
             FlowStep(seed_views.SeedElectrumMnemonicStartView),
         ]
@@ -114,7 +120,7 @@ class TestToolsFlows(FlowTest):
         # Finalize the new seed w/out passphrase
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-            FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.ADDRESS_EXPLORER),
+            FlowStep(TOOLS_MENU, button_data_selection=TOOLS_MENU.ADDRESS_EXPLORER),
             FlowStep(tools_views.ToolsAddressExplorerSelectSourceView, button_data_selection=tools_views.ToolsAddressExplorerSelectSourceView.SCAN_SEED),
             FlowStep(scan_views.ScanSeedQRView, before_run=load_wrong_data_into_decoder),  # simulate scanning the wrong QR type
             FlowStep(ErrorView),
@@ -168,7 +174,7 @@ class TestToolsFlows(FlowTest):
         # ToolsMenu, BACK to ToolsAddressExplorerSelectSourceView.
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-            FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.ADDRESS_EXPLORER),
+            FlowStep(TOOLS_MENU, button_data_selection=TOOLS_MENU.ADDRESS_EXPLORER),
             FlowStep(tools_views.ToolsAddressExplorerSelectSourceView, screen_return_value=0),  # select the first onboard seed
             FlowStep(seed_views.SeedExportXpubScriptTypeView, is_redirect=True),
             FlowStep(tools_views.ToolsAddressExplorerAddressTypeView, screen_return_value=RET_CODE__BACK_BUTTON),
@@ -180,7 +186,7 @@ class TestToolsFlows(FlowTest):
         controller.discard_seed(0)
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-            FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.ADDRESS_EXPLORER),
+            FlowStep(TOOLS_MENU, button_data_selection=TOOLS_MENU.ADDRESS_EXPLORER),
             FlowStep(tools_views.ToolsAddressExplorerSelectSourceView, button_data_selection=tools_views.ToolsAddressExplorerSelectSourceView.SCAN_SEED),
             FlowStep(scan_views.ScanSeedQRView, before_run=load_seed_into_decoder),  # simulate read SeedQR
             FlowStep(seed_views.SeedFinalizeView, button_data_selection=seed_views.SeedFinalizeView.FINALIZE),
@@ -203,7 +209,7 @@ class TestToolsFlows(FlowTest):
 
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-            FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.ADDRESS_EXPLORER),
+            FlowStep(TOOLS_MENU, button_data_selection=TOOLS_MENU.ADDRESS_EXPLORER),
             FlowStep(tools_views.ToolsAddressExplorerSelectSourceView, button_data_selection=tools_views.ToolsAddressExplorerSelectSourceView.SCAN_DESCRIPTOR),
             FlowStep(scan_views.ScanWalletDescriptorView, before_run=load_descriptor_into_decoder),  # simulate read descriptor QR
             FlowStep(seed_views.MultisigWalletDescriptorView, button_data_selection=seed_views.MultisigWalletDescriptorView.ADDRESS_EXPLORER),
@@ -234,7 +240,7 @@ class TestToolsFlows(FlowTest):
 
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-            FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.VERIFY_ADDRESS),
+            FlowStep(TOOLS_MENU, button_data_selection=TOOLS_MENU.VERIFY_ADDRESS),
             FlowStep(scan_views.ScanAddressView, before_run=load_address_into_decoder),  # simulate read address QR
             FlowStep(seed_views.AddressVerificationStartView, is_redirect=True),
             FlowStep(seed_views.AddressVerificationSigTypeView, button_data_selection=seed_views.AddressVerificationSigTypeView.MULTISIG),
@@ -272,7 +278,7 @@ class TestToolsFlows(FlowTest):
 
             self.run_sequence([
                 FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-                FlowStep(tools_views.ToolsMenuView, button_data_selection=tools_views.ToolsMenuView.VERIFY_ADDRESS),
+                FlowStep(TOOLS_MENU, button_data_selection=TOOLS_MENU.VERIFY_ADDRESS),
                 FlowStep(scan_views.ScanAddressView, before_run=load_address_into_decoder),  # simulate read address QR
                 FlowStep(seed_views.AddressVerificationStartView, is_redirect=True),
                 FlowStep(seed_views.SeedSelectSeedView, screen_return_value=0),

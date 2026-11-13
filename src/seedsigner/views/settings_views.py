@@ -30,15 +30,13 @@ class SettingsMenuView(View):
 
 
     def run(self):
+        from seedsigner.hardware import hw_profile
+        if hw_profile.is_max_profile():
+            return self.run_seedmax()
+
         settings_entries = SettingsDefinition.get_settings_entries(
             visibility=self.visibility
         )
-
-        # Seed Max (0033): the language is chosen on the splash (chips, this session
-        # only), so Settings has no "Language" entry
-        from seedsigner.hardware import hw_profile
-        if hw_profile.is_max_profile():
-            settings_entries = [e for e in settings_entries if e.attr_name != SettingsConstants.SETTING__LOCALE]
 
         button_data: list[ButtonOption] = [ButtonOption(e.display_name) for e in settings_entries]
 
@@ -127,6 +125,58 @@ class SettingsMenuView(View):
 
         else:
             return Destination(SettingsEntryUpdateSelectionView, view_args=dict(attr_name=settings_entries[selected_menu_num].attr_name, parent_initial_scroll=initial_scroll))
+
+
+    def run_seedmax(self):
+        """
+        Seed Max (0037, Ollen 13 Nov 2026): one Settings list, no Advanced or Hardware
+        submenus. Bitcoin network first, then the other general and advanced entries
+        (not the language: it comes from the splash chips), then Touch calibration,
+        Battery and Donate. Coming back from an entry of any visibility lands here, on
+        that entry.
+        """
+        from seedsigner.hardware import hw_profile
+        settings_entries = [
+            e for vis in (SettingsConstants.VISIBILITY__GENERAL, SettingsConstants.VISIBILITY__ADVANCED, SettingsConstants.VISIBILITY__HARDWARE)
+            for e in SettingsDefinition.get_settings_entries(visibility=vis)
+            if e.attr_name != SettingsConstants.SETTING__LOCALE
+        ]
+        settings_entries.sort(key=lambda e: e.attr_name != SettingsConstants.SETTING__NETWORK)   # stable: network first
+        button_data: list[ButtonOption] = [ButtonOption(e.display_name) for e in settings_entries]
+        selected_button = 0
+        for i, entry in enumerate(settings_entries):
+            if self.selected_attr and entry.attr_name == self.selected_attr:
+                selected_button = i
+                break
+        button_data.append(self.TOUCH_CALIBRATION)
+        if hw_profile.has_battery_gauge():
+            button_data.append(self.BATTERY)
+        button_data.append(self.DONATE)
+
+        selected_menu_num = self.run_screen(
+            ButtonListScreen,
+            title=_("Settings"),
+            is_button_text_centered=False,
+            button_data=button_data,
+            selected_button=selected_button,
+            scroll_y_initial_offset=self.initial_scroll,
+        )
+        initial_scroll = self.screen.buttons[0].scroll_y if self.screen and self.screen.buttons else 0
+
+        if selected_menu_num == RET_CODE__BACK_BUTTON:
+            return Destination(MainMenuView)
+        if not isinstance(selected_menu_num, int) or isinstance(selected_menu_num, bool) \
+                or not 0 <= selected_menu_num < len(button_data):
+            return Destination(MainMenuView)
+        choice = button_data[selected_menu_num]
+        if selected_menu_num >= len(settings_entries):
+            if choice == self.TOUCH_CALIBRATION:
+                return Destination(TouchCalibrationView)
+            if choice == self.BATTERY:
+                return Destination(BatteryInfoView)
+            return Destination(DonateView)
+        return Destination(SettingsEntryUpdateSelectionView, view_args=dict(
+            attr_name=settings_entries[selected_menu_num].attr_name, parent_initial_scroll=initial_scroll))
 
 
 

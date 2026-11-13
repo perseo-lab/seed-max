@@ -12,6 +12,12 @@ from seedsigner.views.view import CameraConnectionErrorView, MainMenuView, NotYe
 
 
 
+
+# Seed Max (0037): on the Max, Home > Tools opens the Max's own Tools menu (same entries)
+from seedsigner.hardware import hw_profile as _hw
+from seedsigner.views.seedmax_tools import SeedMaxToolsMenuView as _MaxTools
+TOOLS_MENU = _MaxTools if _hw.is_max_profile() else ToolsMenuView
+
 class TestViewFlows(FlowTest):
 
     def test_restart_flow(self):
@@ -60,7 +66,7 @@ class TestViewFlows(FlowTest):
         """
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.TOOLS),
-            FlowStep(ToolsMenuView, button_data_selection=ToolsMenuView.KEYBOARD),
+            FlowStep(TOOLS_MENU, button_data_selection=TOOLS_MENU.KEYBOARD),
             FlowStep(ToolsCalcFinalWordNumWordsView, screen_return_value=Exception("Test exception")),  # <-- force an exception
             FlowStep(UnhandledExceptionView),
             FlowStep(MainMenuView),

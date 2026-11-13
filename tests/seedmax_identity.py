@@ -565,7 +565,7 @@ def test_no_language_in_settings():
     v.run_screen = lambda cls, **kw: 0
     v.screen = MagicMock()
     dest = v.run()
-    check(labels[0] == "Denomination display" and dest.view_args.get("attr_name") == SettingsConstants.SETTING__BTC_DENOMINATION,
+    check(labels[0] == "Bitcoin network" and dest.view_args.get("attr_name") == SettingsConstants.SETTING__NETWORK,
           f"first button opens its own entry ({labels[0]} -> {dest.view_args.get('attr_name')})")
     with patch.object(hw_profile, "is_max_profile", lambda: False):
         check("Language" in run(SettingsMenuView()), "standard profile keeps Settings > Language")
@@ -716,13 +716,52 @@ def test_settings_fixed_on_the_max():
         view.run()
         return [b.button_label for b in seen["button_data"]]
 
-    check(labels(SettingsMenuView()) == ["Denomination display", "Advanced", "Donate"], f"Settings: {labels(SettingsMenuView())}")
-    adv = labels(SettingsMenuView(visibility=C.VISIBILITY__ADVANCED))
-    check(adv == ["Bitcoin network", "QR code density", "Sig types", "Script types", "Compact SeedQR",
-                  "BIP-85 child seeds", "Electrum seeds", "Hardware"], f"Advanced: {adv}")
+    flat = ["Bitcoin network", "Denomination display", "QR code density", "Sig types", "Script types",
+            "Compact SeedQR", "Touch calibration", "Battery", "Donate"]
     with patch.object(hw_profile, "has_battery_gauge", lambda: True):
-        hw = labels(SettingsMenuView(visibility=C.VISIBILITY__HARDWARE))
-    check(hw == ["Touch calibration", "Battery"], f"Hardware: only touch calibration and battery ({hw})")
+        for vis in (C.VISIBILITY__GENERAL, C.VISIBILITY__ADVANCED, C.VISIBILITY__HARDWARE):
+            got = labels(SettingsMenuView(visibility=vis))
+            check(got == flat, f"0037: one Settings list, also when coming back from {vis}: {got}")
+    check(locked.get(C.SETTING__ELECTRUM_SEEDS) == C.OPTION__ENABLED, "0037: Electrum seeds fixed on")
+    check(locked.get(C.SETTING__BIP85_CHILD_SEEDS) == C.OPTION__ENABLED, "0037: BIP-85 fixed on (used from Tools)")
+    check(C.SETTING__NETWORK not in locked, "0037: Bitcoin network in Settings, changeable")
+    settings.set_value(C.SETTING__NETWORK, C.TESTNET)
+    _name, qr = Settings.parse_settingsqr("settings::v1 sigs=ss")
+    settings.update(qr)
+    check(settings.get_value(C.SETTING__NETWORK) == C.MAINNET, "a SettingsQR without network: back to mainnet, as in SeedSigner")
+    settings.update({})
+
+    # each button opens its own entry, back from an entry lands on it, the extra buttons route
+    from seedsigner.views.settings_views import (SettingsEntryUpdateSelectionView, TouchCalibrationView,
+                                                 BatteryInfoView, DonateView)
+    with patch.object(hw_profile, "has_battery_gauge", lambda: True):
+        for i, label in enumerate(flat):
+            v = SettingsMenuView()
+            v.run_screen = lambda cls, i=i, **kw: i
+            v.screen = MagicMock()
+            dest = v.run()
+            if label in ("Touch calibration", "Battery", "Donate"):
+                want = {"Touch calibration": TouchCalibrationView, "Battery": BatteryInfoView, "Donate": DonateView}[label]
+                check(dest.View_cls is want, f"{label} -> {dest.View_cls.__name__}")
+            else:
+                entry = SettingsDefinition.get_settings_entry(dest.view_args["attr_name"])
+                check(dest.View_cls is SettingsEntryUpdateSelectionView and entry.display_name == label,
+                      f"{label} -> its own entry ({entry.display_name})")
+                upd = SettingsEntryUpdateSelectionView(attr_name=entry.attr_name)
+                upd.run_screen = lambda cls, **kw: -1 if False else 1000
+                back = upd.run()
+                seen.clear()
+                back_view = back.View_cls(**back.view_args)
+                back_view.run_screen = lambda cls, **kw: (seen.update(kw), 1000)[1]
+                back_view.screen = MagicMock()
+                home = back_view.run()
+                check(seen["button_data"][seen["selected_button"]].button_label == label and home.View_cls.__name__ == "MainMenuView",
+                      f"back from {label}: the flat list, on {label}; back again: Home")
+        for odd in (99, -1, True, None):
+            v = SettingsMenuView()
+            v.run_screen = lambda cls, odd=odd, **kw: odd
+            v.screen = MagicMock()
+            check(v.run().View_cls.__name__ == "MainMenuView", f"choice {odd!r}: Home, never another entry")
 
 
 def test_message_signing_off_without_a_way_back():
@@ -741,47 +780,114 @@ def test_message_signing_off_without_a_way_back():
 
 
 def test_tools_menu():
-    """ 0036: no New seed from photo or dice; the other tools open as before """
-    from seedsigner.gui.screens.screen import ButtonListScreen
-    from seedsigner.views import tools_views
+    """ 0037: the Max's own Tools; SeedSigner's Tools still filtered as a second guard """
+    from seedsigner.views import tools_views, seedmax_tools
+    from seedsigner.views.view import MainMenuView
     from seedsigner.views.scan_views import ScanAddressView
+    from seedsigner.views.seed_views import SeedBIP85SelectNumWordsView, LoadSeedView
+    from seedsigner.gui.screens.screen import RET_CODE__BACK_BUTTON, RET_CODE__POWER_BUTTON
     shown = {}
+    picks = []
 
     class FakeScreen:
-        pick = 0
-
         def __init__(self, **kw):
             shown.clear()
             shown.update(kw)
 
         def display(self):
-            return FakeScreen.pick
+            return picks.pop(0)
+
+    v = MainMenuView()
+    v.run_screen = lambda cls, **kw: [b.button_label for b in kw["button_data"]].index("Tools")
+    check(v.run().View_cls is seedmax_tools.SeedMaxToolsMenuView, "Home > Tools: the Max's Tools")
+    with patch.object(hw_profile, "is_max_profile", lambda: False):
+        check(v.run().View_cls is tools_views.ToolsMenuView, "standard profile: SeedSigner's Tools")
 
     expected = {"Calc 12th/24th word": tools_views.ToolsCalcFinalWordNumWordsView,
                 "Address explorer": tools_views.ToolsAddressExplorerSelectSourceView,
-                "Verify address": ScanAddressView}
+                "Verify address": ScanAddressView,
+                "BIP-85 child seed": seedmax_tools.SeedMaxBIP85SelectSeedView}
     for i, (label, view_cls) in enumerate(expected.items()):
-        FakeScreen.pick = i
-        with patch.object(tools_views, "ButtonListScreen", FakeScreen):
-            dest = tools_views.ToolsMenuView().run()
+        picks[:] = [i]
+        with patch.object(seedmax_tools, "ButtonListScreen", FakeScreen):
+            dest = seedmax_tools.SeedMaxToolsMenuView().run()
         check([b.button_label for b in shown["button_data"]] == list(expected), f"Tools: {[b.button_label for b in shown['button_data']]}")
         check(dest.View_cls is view_cls, f"tap {i} ({label}) -> {dest.View_cls.__name__}")
-    FakeScreen.pick = -1
-    from seedsigner.gui.screens.screen import RET_CODE__BACK_BUTTON
-    FakeScreen.pick = RET_CODE__BACK_BUTTON
+    for odd in (4, 99, True, None, -1, RET_CODE__BACK_BUTTON, RET_CODE__POWER_BUTTON):
+        picks[:] = [odd]
+        with patch.object(seedmax_tools, "ButtonListScreen", FakeScreen):
+            dest = seedmax_tools.SeedMaxToolsMenuView().run()
+        check(dest.View_cls.__name__ == "BackStackView", f"Tools choice {odd!r}: back")
+
+    # BIP-85: the parent seed among the loaded ones (Electrum seeds can't be parents)
+    from seedsigner.models.seed import Seed, ElectrumSeed
+    from seedsigner.gui.screens import seed_screens
+    from seedsigner.controller import Controller as Ctl
+    ctl = Ctl.get_instance()
+    saved = list(ctl.storage.seeds)
+    ctl.storage.seeds.clear()
+    try:
+        picks[:] = [0]
+        with patch.object(seed_screens, "SeedSelectSeedScreen", FakeScreen):
+            dest = seedmax_tools.SeedMaxBIP85SelectSeedView().run()
+        check([b.button_label for b in shown["button_data"]] == ["Load a seed"] and shown["text"] == "Load the parent seed"
+              and dest.View_cls is LoadSeedView, "no seed loaded: Load a seed")
+        a = Seed(["abandon"] * 11 + ["about"])
+        e = ElectrumSeed("regular reject rare profit once math fringe chase until ketchup century escape".split())
+        b = Seed(["zoo"] * 11 + ["wrong"])
+        check(not e.bip85_supported and a.bip85_supported, "Electrum seeds: no BIP-85")
+        ctl.storage.seeds.extend([a, e, b])
+        for pick, want_num in ((0, 0), (1, 2)):
+            picks[:] = [pick]
+            with patch.object(seed_screens, "SeedSelectSeedScreen", FakeScreen):
+                dest = seedmax_tools.SeedMaxBIP85SelectSeedView().run()
+            check([bt.button_label for bt in shown["button_data"]] == ["73c5da0a", b.get_fingerprint(), "Load a seed"],
+                  f"parents listed, Electrum left out: {[bt.button_label for bt in shown['button_data']]}")
+            check(dest.View_cls is SeedBIP85SelectNumWordsView and dest.view_args == {"seed_num": want_num},
+                  f"pick {pick}: BIP-85 of seed #{want_num} ({dest.view_args})")
+        for odd in (3, 99, None, RET_CODE__BACK_BUTTON, RET_CODE__POWER_BUTTON):
+            picks[:] = [odd]
+            with patch.object(seed_screens, "SeedSelectSeedScreen", FakeScreen):
+                dest = seedmax_tools.SeedMaxBIP85SelectSeedView().run()
+            check(dest.View_cls.__name__ == "BackStackView", f"BIP-85 choice {odd!r}: back")
+    finally:
+        ctl.storage.seeds[:] = saved
+
+    # SeedSigner's own Tools, if ever reached: still without New seed from photo/dice
+    picks[:] = [0]
     with patch.object(tools_views, "ButtonListScreen", FakeScreen):
         dest = tools_views.ToolsMenuView().run()
-    check(dest.View_cls.__name__ == "BackStackView", "back still goes back")
-    for odd in (3, 4, 99, True, None):
-        FakeScreen.pick = odd
-        with patch.object(tools_views, "ButtonListScreen", FakeScreen):
-            dest = tools_views.ToolsMenuView().run()
-        check(dest is None or dest.View_cls.__name__ in ("BackStackView",), f"choice {odd!r} out of the list: back, never a hidden entry")
-    with patch.object(hw_profile, "is_max_profile", lambda: False), patch.object(tools_views, "ButtonListScreen", FakeScreen):
-        FakeScreen.pick = 0
-        dest = tools_views.ToolsMenuView().run()
-    check(len(shown["button_data"]) == 5 and dest.View_cls is tools_views.ToolsImageEntropyLivePreviewView,
-          "standard profile: SeedSigner's full Tools menu")
+    check([b.button_label for b in shown["button_data"]] == ["Calc 12th/24th word", "Address explorer", "Verify address"]
+          and dest.View_cls is tools_views.ToolsCalcFinalWordNumWordsView, "SeedSigner's Tools filtered (second guard)")
+
+
+def test_load_seed_menu():
+    """ 0037: Load a seed without "Create a seed", with "Enter Electrum seed" """
+    from seedsigner.views import seed_views
+    shown = {}
+    picks = []
+
+    class FakeScreen:
+        def __init__(self, **kw):
+            shown.clear()
+            shown.update(kw)
+
+        def display(self):
+            return picks.pop(0)
+
+    want = {"Scan a SeedQR": "ScanSeedQRView", "Enter 12-word seed": "SeedMnemonicEntryView",
+            "Enter 24-word seed": "SeedMnemonicEntryView", "Enter Electrum seed": "SeedElectrumMnemonicStartView"}
+    for i, (label, view_name) in enumerate(want.items()):
+        picks[:] = [i]
+        with patch.object(seed_views, "ButtonListScreen", FakeScreen):
+            dest = seed_views.LoadSeedView().run()
+        check([b.button_label for b in shown["button_data"]] == list(want), f"Load a seed: {[b.button_label for b in shown['button_data']]}")
+        check(dest.View_cls.__name__ == view_name, f"{label} -> {dest.View_cls.__name__}")
+    for odd in (4, 9, None):
+        picks[:] = [odd]
+        with patch.object(seed_views, "ButtonListScreen", FakeScreen):
+            dest = seed_views.LoadSeedView().run()
+        check(dest.View_cls.__name__ == "BackStackView", f"choice {odd!r}: back, never Create a seed")
 
 
 def home():

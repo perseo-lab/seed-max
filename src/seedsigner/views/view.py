@@ -227,6 +227,11 @@ class MainMenuView(View):
             return Destination(SeedsMenuView)
 
         elif button_data[selected_menu_num] == self.TOOLS:
+            from seedsigner.hardware import hw_profile
+            if hw_profile.is_max_profile():
+                # Seed Max (0037): the Max's own Tools menu (views/seedmax_tools.py)
+                from seedsigner.views.seedmax_tools import SeedMaxToolsMenuView
+                return Destination(SeedMaxToolsMenuView)
             from seedsigner.views.tools_views import ToolsMenuView
             return Destination(ToolsMenuView)
 

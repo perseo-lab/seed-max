@@ -916,6 +916,10 @@ def _seedmax_locked_settings() -> dict:
     locked[C.SETTING__MICROSD_TOAST_TIMER] = C.MICROSD_TOAST_TIMER_DISABLED
     locked[C.SETTING__MESSAGE_SIGNING] = C.OPTION__DISABLED
     locked[C.SETTING__PARTNER_LOGOS] = C.OPTION__DISABLED
+    # 0037 (13 Nov 2026): "Enter Electrum seed" always in Load a seed, no setting for it
+    locked[C.SETTING__ELECTRUM_SEEDS] = C.OPTION__ENABLED
+    # 0037: BIP-85 child seeds from Tools (views/seedmax_tools.py) and in the seed options
+    locked[C.SETTING__BIP85_CHILD_SEEDS] = C.OPTION__ENABLED
     return locked
 
 

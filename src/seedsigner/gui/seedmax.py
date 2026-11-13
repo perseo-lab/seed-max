@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw
 # Seed Max version shown on the splash, and the SeedSigner release whose signing code it
 # carries unchanged. tests/test_seedmax_identity.py checks BASE_VERSION against Controller.VERSION
 # and the signing files against that release, so the guarantee line can't go stale.
-SEEDMAX_VERSION = "5.8"
+SEEDMAX_VERSION = "5.9"
 BASE_VERSION = "0.8.7"
 
 # Palette (same family as the Anti-Klepto Check SD, by Ollen's choice of 12 Nov 2026)

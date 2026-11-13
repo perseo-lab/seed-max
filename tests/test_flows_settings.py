@@ -69,9 +69,13 @@ class TestSettingsFlows(FlowTest):
         # Sanity check, we only expect two options for this setting
         assert len(settings_entry.selection_options) == 2
 
+        # Seed Max (0037): one Settings list, no Advanced submenu
+        from seedsigner.hardware import hw_profile
+        advanced = [] if hw_profile.is_max_profile() else [
+            FlowStep(settings_views.SettingsMenuView, button_data_selection=settings_views.SettingsMenuView.ADVANCED)]
         self.run_sequence([
             FlowStep(MainMenuView, button_data_selection=MainMenuView.SETTINGS),
-            FlowStep(settings_views.SettingsMenuView, button_data_selection=settings_views.SettingsMenuView.ADVANCED),
+            *advanced,
             FlowStep(settings_views.SettingsMenuView, button_data_selection=ButtonOption(settings_entry.display_name)),
             FlowStep(settings_views.SettingsEntryUpdateSelectionView, screen_return_value=0),  # deselect first option
             FlowStep(settings_views.SettingsEntryUpdateSelectionView, screen_return_value=1),  # deselect second option

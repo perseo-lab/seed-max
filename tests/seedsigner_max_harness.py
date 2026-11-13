@@ -1449,8 +1449,9 @@ def test_no_io_test_on_the_max():
         return [b.button_label for b in captured.get("button_data", [])]
 
     general = menu(SettingsConstants.VISIBILITY__GENERAL)
-    check(hw_profile.is_max_profile() and "I/O test" not in general and "Advanced" in general,
-          f"Settings menu without I/O test: {general}")
+    # Seed Max (0037): one Settings list, no Advanced submenu
+    check(hw_profile.is_max_profile() and "I/O test" not in general and "Advanced" not in general
+          and "Touch calibration" in general, f"Settings menu without I/O test: {general}")
     hardware = menu(SettingsConstants.VISIBILITY__HARDWARE)
     check("Touch calibration" in hardware, f"Advanced > Hardware still has Touch calibration: {hardware}")
 
