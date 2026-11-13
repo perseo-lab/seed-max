@@ -921,10 +921,10 @@ def _seedmax_locked_settings() -> dict:
     # 0037: BIP-85 child seeds from Tools (views/seedmax_tools.py) and in the seed options
     locked[C.SETTING__BIP85_CHILD_SEEDS] = C.OPTION__ENABLED
     # 0038 (13 Nov 2026): the choices are offered where they're used (Export Xpub asks
-    # single sig or multisig, and the script type among SeedSigner's default ones: Native
-    # Segwit, Nested Segwit, Taproot; the SeedQR backup asks standard or compact)
+    # single sig or multisig, and the script type: Native Segwit, Nested Segwit, Legacy,
+    # Taproot, Custom Derivation; the SeedQR backup asks standard or compact)
     locked[C.SETTING__SIG_TYPES] = [value for value, _name in C.ALL_SIG_TYPES]
-    locked[C.SETTING__SCRIPT_TYPES] = defaults[C.SETTING__SCRIPT_TYPES]
+    locked[C.SETTING__SCRIPT_TYPES] = [value for value, _name in C.ALL_SCRIPT_TYPES]
     locked[C.SETTING__COMPACT_SEEDQR] = C.OPTION__ENABLED
     return locked
 

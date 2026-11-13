@@ -469,6 +469,7 @@ def test_donation():
     from seedsigner.models.encode_qr import GenericStaticQrEncoder
     from seedsigner.views.settings_views import DonateView, SeedMaxDonateQRView
     offer = seedmax.DONATION_BOLT12
+    check(seedmax.DONATE_STRINGS["it"]["free"] == "Seed Max è gratuito e open source.", "0039: 'gratuito', not 'libero'")
     check(offer.startswith("lno1") and len(offer) == 334 and offer == offer.lower(), "a BOLT12 offer, 334 characters")
     for lang in seedmax.DONATE_STRINGS:
         set_locale(lang)
@@ -531,6 +532,50 @@ def test_screensaver():
           f"bounces until a touch, then restores the screen ({R.disp.show_image.call_count} frames)")
     frame = R.disp.show_image.call_args_list[0][0][0]
     check(frame.size == (480, 320), f"each frame is exactly the screen ({frame.size})")
+    # 0039: the TRON scene, built at the first start
+    sc = s.seedmax_scene
+    check(isinstance(sc, seedmax.ScreensaverScene), "0039: the TRON scene")
+    sky = frame.getpixel((240, 2))
+    floor = [frame.getpixel((x, 300)) for x in range(0, 480, 4)]
+    check(any(p[1] > 150 and p[2] > 150 for p in floor), "grid floor drawn under the horizon")
+    boxes = [sc.logo_box(fx, fy) for fx in (0, .5, 1, -1, 2) for fy in (0, .5, 1, -1, 2)]
+    check(all(0 <= x1 and x2 <= 480 and 0 <= y1 and y2 <= seedmax.HORIZON for x1, y1, x2, y2 in boxes),
+          "the wordmark always whole, in the sky above the horizon")
+    x1, y1, x2, y2 = sc.logo_box(.5, .5)
+    f = sc.frame(.5, .5)
+    lit = sum(1 for x in range(x1, x2) for y in range(y1, y2) if f.getpixel((x, y))[1] > 200 and f.getpixel((x, y))[2] > 180)
+    check(lit > 1500, f"SEED MAX lit where it should be ({lit} px)")
+    check(len({sc.frames[k].crop((0, seedmax.HORIZON + 30, 480, 320)).tobytes() for k in range(sc.FLOOR_PHASES)}) == sc.FLOOR_PHASES,
+          f"the floor moves: {sc.FLOOR_PHASES} different positions")
+    it = seedmax.ScreensaverScene(device=seedmax.text("it", "device"))
+    check(it.logo.size[0] == sc.logo.size[0], "the subtitle follows the language and never widens the logo")
+    with patch.object(seedmax, "ScreensaverScene", side_effect=RuntimeError("boom")):
+        plain = ScreensaverScreen(MagicMock())
+        b2 = MagicMock()
+        b2.has_any_input.side_effect = [False, True]
+        b2.override_ind = False
+        plain.buttons = b2
+        R.disp.show_image.reset_mock()
+        plain.start()
+    check(plain.seedmax_scene is None and R.disp.show_image.call_count == 1,
+          "if the scene fails: the plain bouncing logo, never no screensaver")
+    # a frame that fails mid-loop: plain logo for that frame and from then on, no error out
+    s2 = ScreensaverScreen(MagicMock())
+    s2.seedmax_scene = seedmax.ScreensaverScene()
+    b3 = MagicMock()
+    b3.has_any_input.side_effect = [False, False, True, False, True]
+    b3.override_ind = False
+    s2.buttons = b3
+    R.disp.show_image.reset_mock()
+    try:
+        with patch.object(seedmax.ScreensaverScene, "frame", side_effect=OSError("boom")):
+            s2.start()
+            s2.start()
+        ok = True
+    except Exception:
+        ok = False
+    check(ok and s2.seedmax_scene is None and R.disp.show_image.call_count >= 3,
+          "a failing frame never escapes: the plain logo from then on")
     with patch.object(hw_profile, "is_max_profile", lambda: False):
         std = ScreensaverScreen(MagicMock())
     check(std.logo.size == (240, 240) and std.image.getpixel((0, 0)) == (0, 0, 0),
@@ -681,6 +726,9 @@ def test_settings_fixed_on_the_max():
                 C.SETTING__CAMERA_ROTATION: hw_profile.CAMERA_ROTATION, C.SETTING__DISPLAY_COLOR_INVERTED: C.OPTION__DISABLED}
     for attr, value in expected.items():
         check(locked.get(attr) == value, f"{attr} fixed at {value!r} ({locked.get(attr)!r})")
+    check(locked.get(C.SETTING__SCRIPT_TYPES) == [v for v, _n in C.ALL_SCRIPT_TYPES]
+          and {C.LEGACY_P2PKH, C.CUSTOM_DERIVATION} <= set(locked[C.SETTING__SCRIPT_TYPES]),
+          "0039: all 5 script types, Legacy and Custom Derivation included")
     for attr in (C.SETTING__DISPLAY_CONFIGURATION, C.SETTING__MAX_CAMERA_RESOLUTION, C.SETTING__MAX_DISPLAY_SPI_MHZ):
         check(attr in locked, f"{attr} fixed at the build's value ({locked.get(attr)!r})")
     zoom = SettingsDefinition.get_settings_entry(C.SETTING__MAX_CAMERA_ZOOM)

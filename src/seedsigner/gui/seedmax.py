@@ -162,7 +162,7 @@ DONATE_STRINGS = {
     "en": dict(free="Seed Max is free and open source.", how="Support it with:",
                ln="Lightning (BOLT12)", sp="On-chain · Silent Payments",
                wallets="LN: Phoenix, Zeus · on-chain: Sparrow 2.3+, Cake, BlueWallet"),
-    "it": dict(free="Seed Max è libero e open source.", how="Sostienilo con:",
+    "it": dict(free="Seed Max è gratuito e open source.", how="Sostienilo con:",
                ln="Lightning (BOLT12)", sp="On-chain · Silent Payments",
                wallets="LN: Phoenix, Zeus · on-chain: Sparrow 2.3+, Cake, BlueWallet"),
     "fr": dict(free="Seed Max est libre et open source.", how="Soutenez-le avec :",
@@ -221,6 +221,99 @@ def screensaver_logo(height: int = 44) -> Image.Image:
     img = Image.new("RGBA", mark.size, NAVY1 + (255,))
     img.alpha_composite(mark)
     return img.convert("RGB")
+
+
+class ScreensaverScene:
+    """
+    Seed Max (0039, Ollen 13 Nov 2026): the screensaver as a little TRON scene. Night sky
+    with stars (a few blinking), the grid floor running towards you under a glowing
+    horizon, the two light trails of the splash; "SEED MAX" in neon with "SIGNING DEVICE"
+    under it, bouncing around the sky.
+
+    The floor is drawn once in FLOOR_PHASES positions (the cross lines a little nearer each
+    time) and the frames are kept: each frame is then a copy of one of them plus the
+    wordmark pasted at its place, cheap enough for the Pi Zero.
+    """
+    FLOOR_PHASES = 10
+    TWINKLE = 9                     # stars that blink, out of 60
+
+    def __init__(self, device: str = "SIGNING DEVICE", height: int = 50):
+        rng = random.Random(11)
+        self.stars = [(rng.randrange(W), rng.randrange(HORIZON - 10)) for _ in range(60)]
+        self.logo = self._logo(height, device)
+        self.frames = [self._floor(k / self.FLOOR_PHASES) for k in range(self.FLOOR_PHASES)]
+        self.count = 0
+
+    def _logo(self, height, text):
+        """ the neon wordmark with the splash's "SIGNING DEVICE" spaced out under it """
+        from seedsigner.gui.components import Fonts
+        mark = wordmark(height)
+        logo = Image.new("RGBA", (mark.width, mark.height + 18), (0, 0, 0, 0))
+        logo.alpha_composite(mark, (0, 0))
+        f = Fonts.get_font("Inconsolata-SemiBold", 13)
+        d = ImageDraw.Draw(logo)
+        while len(text) > 1 and d.textlength(text, font=f) + 4 * (len(text) - 1) > logo.width:
+            f = Fonts.get_font("Inconsolata-SemiBold", f.size - 1)
+        widths = [d.textlength(c, font=f) for c in text]
+        spacing = 4
+        x = (logo.width - (sum(widths) + spacing * (len(text) - 1))) / 2
+        for c, w in zip(text, widths):
+            d.text((x, mark.height + 8), c, font=f, fill=CYAN + (230,), anchor="lm")
+            x += w + spacing
+        return logo
+
+    def _floor(self, phase: float) -> Image.Image:
+        img = Image.new("RGBA", (W, H))
+        d = ImageDraw.Draw(img)
+        for y in range(H):
+            d.line((0, y, W, y), fill=_blend(NAVY0, NAVY2, y / (H - 1)) + (255,))
+        for x, y in self.stars:
+            d.point((x, y), fill=(160, 200, 255))
+        lines = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        g = ImageDraw.Draw(lines)
+        vx = W / 2
+        for i in range(-18, 19):                                         # floor rays
+            g.line((vx + i * 5, HORIZON, vx + i * 52, H), fill=CYAN + (90,))
+        # cross lines: y = HORIZON + a * (r ** (k + phase) - 1), each phase a step nearer
+        a, r = 2.4 / 0.28, 1.28
+        k = 0
+        while True:
+            y = HORIZON + a * (r ** (k + phase) - 1)
+            if y >= H:
+                break
+            g.line((0, int(y), W, int(y)), fill=CYAN + (int(50 + 160 * (y - HORIZON) / (H - HORIZON)),))
+            k += 1
+        for j in range(26):                                              # fade into the horizon
+            g.line((0, HORIZON + j, W, HORIZON + j), fill=NAVY1 + (int(200 * (1 - j / 26)),))
+        for width, alpha in ((15, 20), (9, 40), (5, 90), (2, 255)):      # horizon glow
+            g.line((0, HORIZON, W, HORIZON), fill=CYAN_LIGHT + (alpha,), width=width)
+        img.alpha_composite(lines)
+        neon(img, [[(-10, 300), (130, 300), (182, 234), (230, 192)]], 3, glow=2)
+        neon(img, [[(490, 270), (362, 270), (300, 218), (254, 194)]], 3, color=TRAIL_BLUE, glow=2)
+        return img
+
+    SKY_MARGIN = 6
+
+    def logo_box(self, fx: float, fy: float) -> tuple:
+        """
+        where the wordmark goes for a position fx, fy in 0..1: always whole, in the sky
+        above the horizon
+        """
+        m = self.SKY_MARGIN
+        x = m + int(max(0.0, min(1.0, fx)) * (W - 2 * m - self.logo.width))
+        y = m + int(max(0.0, min(1.0, fy)) * (HORIZON - 2 * m - self.logo.height))
+        return x, y, x + self.logo.width, y + self.logo.height
+
+    def frame(self, fx: float, fy: float) -> Image.Image:
+        self.count += 1
+        img = self.frames[self.count % self.FLOOR_PHASES].copy()
+        d = ImageDraw.Draw(img)
+        for i, (x, y) in enumerate(self.stars[:self.TWINKLE]):            # a few stars blink
+            if (self.count // 3 + i) % 5 == 0:
+                d.point((x, y), fill=NAVY1)
+        x, y, _x2, _y2 = self.logo_box(fx, fy)
+        img.alpha_composite(self.logo, (x, y))
+        return img.convert("RGB")
 
 
 def donate_text(lang: str, key: str) -> str:

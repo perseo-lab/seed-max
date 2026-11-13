@@ -291,13 +291,17 @@ class ScreensaverScreen(LogoScreen):
         # Seed Max (0033): "SEED MAX" bounces on night blue instead of SeedSigner's logo
         # on black. Same timing and same exit (any input); if the logo can't be drawn,
         # SeedSigner's own is kept.
+        # 0039: a TRON scene (grid floor running, stars, light trails) with "SEED MAX"
+        # bouncing over it, built when the screensaver first starts.
         background = (0, 0, 0)
+        self.seedmax_scene = None
         from seedsigner.hardware import hw_profile
         if hw_profile.is_max_profile():
             try:
                 from seedsigner.gui import seedmax
                 self.logo = seedmax.screensaver_logo()
                 background = seedmax.SCREENSAVER_BACKGROUND
+                self.seedmax_scene = False      # built on the first start()
             except Exception as e:
                 logger.exception(f"Seed Max screensaver logo failed, SeedSigner's instead: {e}")
 
@@ -347,6 +351,16 @@ class ScreensaverScreen(LogoScreen):
         # Store the current screen in order to restore it later
         self.last_screen = self.renderer.canvas.copy()
 
+        if self.seedmax_scene is False:
+            try:
+                from seedsigner.gui import seedmax
+                from seedsigner.models.settings import Settings
+                lang = Settings.get_instance().get_value(SettingsConstants.SETTING__LOCALE)
+                self.seedmax_scene = seedmax.ScreensaverScene(device=seedmax.text(lang, "device"))
+            except Exception as e:
+                logger.exception(f"Seed Max screensaver scene failed, the plain one instead: {e}")
+                self.seedmax_scene = None
+
         screensaver_start = int(time.time() * 1000)
 
         # Screensaver must block any attempts to use the Renderer in another thread so it
@@ -357,10 +371,22 @@ class ScreensaverScreen(LogoScreen):
                     if self.buttons.has_any_input() or self.buttons.override_ind:
                         break
 
-                    # Must crop the image to the exact display size
-                    crop = self.image.crop((
-                        self.cur_x, self.cur_y,
-                        self.cur_x + self.renderer.canvas_width, self.cur_y + self.renderer.canvas_height))
+                    crop = None
+                    if self.seedmax_scene:
+                        # Seed Max (0039): the scene, with the wordmark at the same relative
+                        # position the crop window would have (always whole on screen).
+                        # A failing frame drops the scene for good: never an error out of
+                        # the screensaver into the screen underneath.
+                        try:
+                            crop = self.seedmax_scene.frame(self.cur_x / self.max_coords[0], self.cur_y / self.max_coords[1])
+                        except Exception as e:
+                            logger.exception(f"Seed Max screensaver frame failed, the plain one instead: {e}")
+                            self.seedmax_scene = None
+                    if crop is None:
+                        # Must crop the image to the exact display size
+                        crop = self.image.crop((
+                            self.cur_x, self.cur_y,
+                            self.cur_x + self.renderer.canvas_width, self.cur_y + self.renderer.canvas_height))
                     self.renderer.disp.show_image(crop, 0, 0)
 
                     self.cur_x += self.increment_x
