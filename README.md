@@ -136,10 +136,10 @@ Ollen_47
 
 If Seed Max or Anti-Klepto Check is useful to you, a donation is welcome. The address is a **silent payment address (BIP 352)**: every payment lands on a fresh on-chain address, so donations can't be linked or counted from outside.
 
-The address is in [`DONATE.txt.asc`](DONATE.txt.asc), **signed with the key above**. Verify the signature before sending: a fork could replace this README, but it can't forge the signature.
+The address is in [`docs/DONATE.txt.asc`](docs/DONATE.txt.asc), **signed with the key above**. Verify the signature before sending: a fork could replace this README, but it can't forge the signature.
 
 ```bash
-gpg --verify DONATE.txt.asc
+gpg --verify docs/DONATE.txt.asc
 ```
 
 ---
