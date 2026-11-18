@@ -28,7 +28,7 @@ The v4 code paths (ST7796 4.0" panel, custom carrier PCB) are still in the tree 
 
 ## What changes compared to SeedSigner 0.8.7
 
-**The signing path is untouched.** Every file that reads the PSBT, checks change, derives keys or signs is byte-identical to SeedSigner 0.8.7 (commit `e0a80d4b`): `src/main.py`, the whole of `helpers/`, every file of `models/` except the two settings files, `views/psbt_views.py`, `seed_views.py`, `scan_views.py`, `tools_views.py`, `views/__init__.py` and `requirements.txt`. The test `tests/test_seedmax_identity.py` pins them by git blob id. Check it yourself (no output = identical):
+**The signing path is untouched.** Every file that reads the PSBT, checks change, derives keys or signs is byte-identical to SeedSigner 0.8.7 (commit `e0a80d4b`): `src/main.py`, the whole of `helpers/`, every file of `models/` except the two settings files, `views/psbt_views.py`, `seed_views.py`, `scan_views.py`, `tools_views.py`, `views/__init__.py` and `requirements.txt`. The test `tests/test_seedmax_identity.py` pins all of them by git blob id except `src/main.py`, which the `git diff` below covers. Check it yourself (no output = identical):
 
 ```bash
 S=src/seedsigner
@@ -38,7 +38,7 @@ git diff e0a80d4b v5.9 --stat -- src/main.py requirements.txt $S/helpers \
   $S/views/scan_views.py $S/views/tools_views.py
 ```
 
-The two settings files changed only to remove *Persistent Settings* and to fix some settings on the Max (see below): they store settings, they don't sign. In `psbt_screens.py` only colours and the hold-to-confirm on *Approve* and *Skip verification* changed.
+The two settings files changed only to remove *Persistent Settings* and to fix some settings on the Max (see below): they store settings, they don't sign. In `psbt_screens.py` only colours, the hold-to-confirm on *Approve* and *Skip verification*, and the wording of the approve prompt ("Hold the button to approve this transaction") changed.
 
 Everything else is interface, touch, camera, battery and menus:
 
@@ -52,7 +52,7 @@ Everything else is interface, touch, camera, battery and menus:
 - **Passphrase on three lines** of 40 characters, with spaces shown as dots: a passphrase that differs by one space is a different wallet.
 - **Address verified** shows the whole address in groups of four, not a shortened one.
 - **Tools:** Calc 12th/24th word, Address explorer, Verify address, BIP-85 child seed (SeedSigner's own BIP-85 code, the child's words on one screen). No *New seed* from the camera or from dice on the device: seeds are created off the device and loaded. *Load a seed* also offers Electrum seeds.
-- **Settings on one list:** Bitcoin network, Denomination, Touch calibration, Battery, Donate. Everything else is fixed by the build and can't be changed by the menus or by a SettingsQR: no *Persistent Settings* (nothing is ever read from or written to the microSD), message signing off, privacy and dire warnings on, passphrase offered, script type and xpub format asked where they are used.
+- **Settings on one list:** Bitcoin network, Denomination, Touch calibration, Battery, Donate. The security-relevant settings are fixed by the build and can't be changed by the menus or by a SettingsQR: no *Persistent Settings* (nothing is ever read from or written to the microSD), message signing off, privacy and dire warnings on, passphrase offered, script type and xpub format asked where they are used. Display preferences can still change: the language (for the session), QR density, scanner zoom and the QR screen's background.
 - **Own look:** a "SEED MAX" splash with language chips (EN IT FR ES DE, for the current session only), a night-blue palette, an animated neon-grid screensaver. No SeedSigner logo and no sponsor logos: they belong to the SeedSigner project.
 
 Tests: `tests/test_seedsigner_max*.py`, `tests/seedsigner_max_*.py`, `tests/test_seedmax_*.py` and `tests/seedmax_identity.py`, plus SeedSigner's own test suite. They include a real-time harness that drives the real screens with scripted touches.
@@ -96,7 +96,7 @@ If everything is green, the device rebuilds the transaction **from the signature
 
 - **Experimental software built by one person.** It is tested by the author on his own device: a mainnet signing test with Seed Max and Sparrow, and device tests of Anti-Klepto Check with a Coldcard Q and Sparrow. **No human third party has audited it.** Start with a test seed and small amounts.
 - **Developed with AI assistance** (Anthropic's Claude). Commits carry `Co-Authored-By` lines. The "independent reviews" mentioned in commit messages were separate AI-agent reviews, adversarial tests and mutation testing, not human audits. Every finding is reproduced as a regression test.
-- Seed Max's signing path is SeedSigner 0.8.7's, unchanged (see the `git diff` above), and the image's operating system is SeedSigner 0.8.7's, unchanged (see *Verify the image* below). Anti-Klepto Check's verifier (`src/nonceverify/`) is new code that uses the Python standard library only.
+- Seed Max's signing path is SeedSigner 0.8.7's, unchanged (see the `git diff` above), and the image's operating system is SeedSigner 0.8.7's, unchanged (see *Verify the image* below). Anti-Klepto Check's verifier (`src/nonceverify/`, on the [`anti-klepto-check`](../../tree/anti-klepto-check) branch) is new code that uses the Python standard library only.
 
 Bug reports are welcome as issues. Report security problems **privately** through [Security › Report a vulnerability](../../security/advisories/new), not in a public issue.
 
@@ -141,7 +141,9 @@ python3 seed-max/tools/ssmax_image_audit.py seedsigner_os.0.8.7.pi0.img seed-max
 echo "exit status: $?"
 ```
 
-Exit status `0` means: operating system identical to SeedSigner 0.8.7, application identical to the tag. The bytecode check recompiles the changed `.py` files, so it needs CPython 3.12 (any 3.12.x). With another Python the tool exits with `4` and says which checks it could not run; run it in `docker run --rm -v "$PWD":/w -w /w python:3.12 python3 seed-max/tools/ssmax_image_audit.py ...` instead. Three subset fonts (NotoSans JP/KR/SC) are reported as different: they depend on the fonttools version present at build time and are data, not code.
+Exit status `0` means: operating system identical to SeedSigner 0.8.7, application identical to the tag. Without `--app-tree` the tool never exits with `0`: it exits with `4` (incomplete), because the application was not compared with any source. If the tag given with `--app-rev` doesn't exist, it stops with an error (`2`) instead of comparing whatever is checked out. The bytecode check recompiles the changed `.py` files, so it needs CPython 3.12 (any 3.12.x). With another Python the tool exits with `4` and says which checks it could not run; run it in `docker run --rm -v "$PWD":/w -w /w python:3.12 python3 seed-max/tools/ssmax_image_audit.py ...` instead.
+
+What the audit does **not** verify: three subset fonts (NotoSans JP/KR/SC) are reported as different, because they are cut at build time by whatever fonttools version is installed, and the `egg-info` metadata. The fonts draw text, digits included, only when the language is Japanese, Korean or Chinese: the Max's own menus offer only EN IT FR ES DE, but a SettingsQR can still select those languages.
 
 **Building from source.** The images are built with [SeedSigner OS](https://github.com/SeedSigner/seedsigner-os) (the 0.8.7 checkout), with this repository and the release tag as the app source:
 

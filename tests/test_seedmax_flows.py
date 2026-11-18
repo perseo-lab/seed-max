@@ -130,7 +130,7 @@ class TestSeedMaxChildWords(BaseTest):
             assert shown == [expected], "all the child's words, once"
             assert [p for v, p in visited if v == "SeedWordsView"] == list(range(pages))
             assert getattr(self.controller, "seedmax_child_pages", None) is None
-        # the BIP-85 test vector: abandon x11 about, child #0, 12 words
+        # a fixed BIP-85 case (not the BIP-85 spec vector): abandon x11 about, child #0, 12 words
         twelve = Seed(["abandon"] * 11 + ["about"]).get_bip85_child_mnemonic(0, 12).split()
         assert twelve == "prosper short ramp prepare exchange stove life snack client enough purpose fold".split()
 

@@ -50,20 +50,25 @@ Limitations (see also the README, section "Verify the image"):
   * Bytecode bodies of changed .py files are verified only when the tool runs on
     CPython 3.12 (3.12.10 = byte-for-byte; other 3.12.x = same bytecode).
   * Fonts/.mo generated with other tool versions can differ; .mo files are compared
-    message by message, fonts are only reported.
+    message by message, fonts are only reported (not verified).  The NotoSans JP/KR/SC
+    subsets are used to draw text, digits included, when the device is set to Japanese,
+    Korean or Chinese.
 
 Exit status:
   0  OS part identical to the official image: every boot file except zImage is
      identical, the kernel code is identical (apart from the embedded initramfs and the
      address shift it causes) and every root-filesystem entry outside /opt/src is
-     identical.  Only /opt/src differs, and every check on /opt/src passed.
+     identical.  Only /opt/src differs, every check on /opt/src passed, and every file
+     of /opt/src matches the app tree given with --app-tree (at --app-rev).
+     Without --app-tree the tool never exits with 0: see 4.
   1  something OUTSIDE /opt/src differs, or could not be proven identical.
   2  usage error, or an input could not be read or parsed.
   3  OS part identical, but a check on /opt/src failed (bytecode that does not match
      its source, or, with --app-tree, a file that does not match the app tree).
-  4  OS part identical and nothing failed, but not everything could be verified with
-     the Python running the tool (bytecode of changed files needs the same CPython
-     version as the image, 3.12 for SeedSigner 0.8.7).
+  4  OS part identical and nothing failed, but not everything could be verified: no
+     --app-tree was given (so /opt/src was not compared with any source tree), or the
+     bytecode of changed files could not be recompiled by the Python running the tool
+     (it needs the same CPython version as the image, 3.12 for SeedSigner 0.8.7).
 """
 
 import argparse
@@ -1698,6 +1703,9 @@ class AppTree:
         try:
             top = self._git("rev-parse", "--show-toplevel").decode().strip()
             if os.path.realpath(top) != os.path.realpath(self.root):
+                if rev != "HEAD":
+                    raise AuditError("--app-tree %s is not the top of a git repository (that is %s), so "
+                                     "--app-rev %s cannot be checked" % (self.root, top, rev))
                 rep.warn("%s is not the top of a git repository (that is %s); comparing the working-tree "
                          "files instead" % (self.root, top))
                 return False
@@ -1708,8 +1716,12 @@ class AppTree:
             names = self._git("ls-tree", "-r", "-z", "--name-only", "--full-tree", commit)
         except (OSError, subprocess.CalledProcessError) as ex:
             msg = getattr(ex, "stderr", b"") or str(ex).encode()
-            rep.warn("git could not read %s (%s); comparing the working-tree files instead"
-                     % (self.root, msg.decode("utf-8", "replace").strip().splitlines()[-1] if msg else ex))
+            detail = msg.decode("utf-8", "replace").strip().splitlines()[-1] if msg else str(ex)
+            if rev != "HEAD":
+                # A revision was asked for (e.g. a release tag): never fall back silently to
+                # whatever files happen to be checked out.
+                raise AuditError("git could not resolve --app-rev %s in %s (%s)" % (rev, self.root, detail))
+            rep.warn("git could not read %s (%s); comparing the working-tree files instead" % (self.root, detail))
             return False
         self.git_info = (rev, commit, tree, srctree)
         self.all_paths = set(n.decode("utf-8", "surrogateescape") for n in names.split(b"\x00") if n)
@@ -2039,6 +2051,7 @@ def audit_app(off, cand, app_diffs, app_tree, rep):
     if app_tree is None:
         rep.line()
         rep.line("  (no --app-tree given: the files above are not compared with the reviewed source)")
+        rep.incomplete.append("no --app-tree: /opt/src was not compared with any source tree")
         state = "FAILED (%d)" % len(rep.app_problems) if rep.app_problems else \
             "INCOMPLETE" if rep.incomplete else "passed"
         rep.summary.append(("/opt/src checks (no --app-tree)", "%s; %d differences, %d pyc checked"
