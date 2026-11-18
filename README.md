@@ -1,8 +1,8 @@
 # Seed Max
 
-**An unofficial fork of [SeedSigner](https://github.com/SeedSigner/seedsigner) for a touchscreen, battery-powered build — plus *Anti-Klepto Check*, an air-gapped verifier that checks what your hardware wallet actually signed.**
+**Firmware for a touchscreen, battery-powered air-gapped Bitcoin signer, based on [SeedSigner](https://github.com/SeedSigner/seedsigner) (MIT license). Part of [Perseo Lab](https://github.com/perseo-lab).**
 
-> Seed Max is not affiliated with, endorsed by, or supported by the SeedSigner project. Please don't ask the SeedSigner team for help with it.
+> Seed Max is an independent project built on SeedSigner's code, which it keeps under its original MIT license and copyright. It is not affiliated with, endorsed by, or supported by the SeedSigner project. Please don't ask the SeedSigner team for help with it.
 
 Two images for the same device:
 
