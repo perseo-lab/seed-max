@@ -21,7 +21,7 @@ from PIL import Image, ImageDraw
 SEEDMAX_VERSION = "5.9"
 BASE_VERSION = "0.8.7"
 
-# Palette (same family as the Anti-Klepto Check SD, by Ollen's choice of 12 Nov 2026)
+# Palette (same family as the Anti-Klepto Check SD, 12 Nov 2026)
 NAVY0 = (6, 8, 30)
 NAVY1 = (10, 14, 48)
 NAVY2 = (36, 52, 160)
@@ -135,7 +135,7 @@ STRINGS = {
 
 
 # ---------------------------------------------------------------------------------------
-# Donations (0032, Ollen's choice of 12 Nov 2026): Lightning, a BOLT12 offer. It has
+# Donations (0032, 12 Nov 2026): Lightning, a BOLT12 offer. It has
 # no amount (the donor chooses), no description and no node id: one blinded path whose
 # introduction node is ACINQ's (Phoenix). Reusable forever, nothing on-chain reused.
 # Payable by BOLT12 wallets (Phoenix, Zeus, Core Lightning...), not by Sparrow (on-chain).
@@ -148,7 +148,7 @@ DONATION_BOLT12 = (
     "um7w780vh36qqsnus40074hc0y64ksea2xvfwsgq"
 )
 
-# 0035 (Ollen, 12 Nov 2026): also on-chain, to a Silent Payments address (BIP-352). One
+# 0035 (12 Nov 2026): also on-chain, to a Silent Payments address (BIP-352). One
 # static address, yet every payment lands on a fresh taproot output only the owner can
 # find: nothing is reused on-chain and the address reveals no balance. Version 0, 116
 # characters: scan key (02...) and spend key (03...). Payable by wallets that SEND to sp1
@@ -225,7 +225,7 @@ def screensaver_logo(height: int = 44) -> Image.Image:
 
 class ScreensaverScene:
     """
-    Seed Max (0039, Ollen 13 Nov 2026): the screensaver as a little TRON scene. Night sky
+    Seed Max (0039, 13 Nov 2026): the screensaver as a little neon-grid scene. Night sky
     with stars (a few blinking), the grid floor running towards you under a glowing
     horizon, the two light trails of the splash; "SEED MAX" in neon with "SIGNING DEVICE"
     under it, bouncing around the sky.
@@ -335,7 +335,7 @@ HORIZON = 184
 CHIP_W, CHIP_H, CHIP_GAP, CHIP_TOP = 42, 24, 8, 6     # 0033: centred, more space between
 CHIP_TOUCH_BOTTOM = 35                     # the tap zone reaches below the drawn chip
 START = (160, 245, 320, 279)               # widened for long words, see start_rect()
-# 0033: bigger texts, Ollen found them too small on the 3.5" panel. The guarantee box
+# 0033: bigger texts, too small on the 3.5" panel. The guarantee box
 # spans the screen and its second line is split in two at " · ".
 GUARANTEE = (14, 164, 466, 236)
 G1_SIZE, G2_SIZE = 17, 14

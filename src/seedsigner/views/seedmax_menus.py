@@ -7,7 +7,7 @@ entries; the index the user picks is translated back to the View's own list, so 
 routes exactly as before. A choice that isn't in the list shown is BACK: never an entry
 the user didn't see.
 
-* Load a seed (0037, Ollen 13 Nov 2026): no "Create a seed" (it led to SeedSigner's Tools,
+* Load a seed (0037, 13 Nov 2026): no "Create a seed" (it led to SeedSigner's Tools,
   with New seed from photo/dice). "Enter Electrum seed" is always there: the Electrum
   setting is fixed on (settings_definition).
 * SeedSigner's Tools (0036): no "New seed" from photo or dice. On the Max the Home opens

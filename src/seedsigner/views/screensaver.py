@@ -291,7 +291,7 @@ class ScreensaverScreen(LogoScreen):
         # Seed Max (0033): "SEED MAX" bounces on night blue instead of SeedSigner's logo
         # on black. Same timing and same exit (any input); if the logo can't be drawn,
         # SeedSigner's own is kept.
-        # 0039: a TRON scene (grid floor running, stars, light trails) with "SEED MAX"
+        # 0039: a neon-grid scene (grid floor running, stars, light trails) with "SEED MAX"
         # bouncing over it, built when the screensaver first starts.
         background = (0, 0, 0)
         self.seedmax_scene = None

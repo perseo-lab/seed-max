@@ -890,11 +890,11 @@ class SettingsDefinition:
 
 
 # ---------------------------------------------------------------------------------------
-# Seed Max (0036, Ollen, 12 Nov 2026): settings fixed on the Max. They are not in any menu
+# Seed Max (0036, 12 Nov 2026): settings fixed on the Max. They are not in any menu
 # (hidden), and nothing can move them off the value below: Settings.set_value() and a
 # SettingsQR leave them where they are (see Settings.set_value and tests/seedmax_identity.py).
 # Values: SeedSigner's defaults, except the microSD notice (off: the card stays in the
-# case), message signing (off: a signing feature Ollen doesn't use) and the partner logos
+# case), message signing (off: not part of the Max's scope) and the partner logos
 # (off: the Seed Max splash doesn't show them).
 # ---------------------------------------------------------------------------------------
 def _seedmax_locked_settings() -> dict:

@@ -1,11 +1,11 @@
 """
-Seed Max: the Tools menu of the Max (0037, Ollen 13 Nov 2026). The Home's Tools button
+Seed Max: the Tools menu of the Max (0037, 13 Nov 2026). The Home's Tools button
 opens this View on the Max; SeedSigner's ToolsMenuView (pinned to 0.8.7) stays as it is.
 
 * Calc 12th/24th word, Address explorer, Verify address: the same destinations as in
   SeedSigner's Tools.
-* No "New seed" from a photo or from D6 dice (Ollen makes his seed with dice off the
-  device).
+* No "New seed" from a photo or from D6 dice: on the Max, seeds are created off the
+  device and loaded.
 * BIP-85 child seed: choose the parent seed among those loaded (fingerprints), then
   SeedSigner's own BIP-85 views (number of words, child index, the child's words). With
   no seed loaded, "Load a seed" opens SeedSigner's loader; once loaded, the parent's seed

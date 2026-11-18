@@ -532,9 +532,9 @@ def test_screensaver():
           f"bounces until a touch, then restores the screen ({R.disp.show_image.call_count} frames)")
     frame = R.disp.show_image.call_args_list[0][0][0]
     check(frame.size == (480, 320), f"each frame is exactly the screen ({frame.size})")
-    # 0039: the TRON scene, built at the first start
+    # 0039: the neon-grid scene, built at the first start
     sc = s.seedmax_scene
-    check(isinstance(sc, seedmax.ScreensaverScene), "0039: the TRON scene")
+    check(isinstance(sc, seedmax.ScreensaverScene), "0039: the neon-grid scene")
     sky = frame.getpixel((240, 2))
     floor = [frame.getpixel((x, 300)) for x in range(0, 480, 4)]
     check(any(p[1] > 150 and p[2] > 150 for p in floor), "grid floor drawn under the horizon")
@@ -712,7 +712,7 @@ def test_word_screens_render():
 
 
 def test_settings_fixed_on_the_max():
-    """ 0036: the settings Ollen fixed: not in any menu, and nothing moves them """
+    """ 0036: the settings fixed on the Max: not in any menu, and nothing moves them """
     from seedsigner.models import settings_definition as sd
     from seedsigner.models.settings_definition import SettingsDefinition
     from seedsigner.views.settings_views import SettingsMenuView

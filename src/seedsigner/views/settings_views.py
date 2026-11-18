@@ -129,7 +129,7 @@ class SettingsMenuView(View):
 
     def run_seedmax(self):
         """
-        Seed Max (0037, Ollen 13 Nov 2026): one Settings list, no Advanced or Hardware
+        Seed Max (0037, 13 Nov 2026): one Settings list, no Advanced or Hardware
         submenus. Bitcoin network first, then the other general and advanced entries
         (not the language: it comes from the splash chips), then Touch calibration,
         Battery and Donate. Coming back from an entry of any visibility lands here, on
