@@ -13,7 +13,7 @@
 
 ## Hardware (v5)
 
-No custom PCB, no soldering.
+The device is **[Raspy Max v5](https://github.com/perseo-lab/raspy-max-hardware)**: bill of materials, the 3D-printable case and a step-by-step build guide are in its own repository. No custom PCB, no soldering.
 
 | Part | Notes |
 |---|---|
@@ -61,7 +61,7 @@ Tests: `tests/test_seedsigner_max*.py`, `tests/seedsigner_max_*.py`, `tests/test
 
 ## Anti-Klepto Check
 
-Anti-Klepto Check, the air-gapped verifier that checks what your hardware wallet actually signed (RFC 6979 nonces against covert channels such as [Dark Skippy](https://darkskippy.com/), SIGHASH_ALL, change, txid), has moved to its own repository: **[perseo-lab/anti-klepto-check](https://github.com/perseo-lab/anti-klepto-check)**. It runs on the same hardware as Seed Max, from its own microSD. Releases, documentation and issues are there.
+Anti-Klepto Check, the air-gapped verifier that checks what your hardware wallet actually signed (RFC 6979 nonces against covert channels such as [Dark Skippy](https://darkskippy.com/), SIGHASH_ALL, change, txid), has moved to its own repository: **[perseo-lab/anti-klepto-check](https://github.com/perseo-lab/anti-klepto-check)**. It runs on the same hardware as Seed Max, [Raspy Max](https://github.com/perseo-lab/raspy-max-hardware), from its own microSD. Releases, documentation and issues are there.
 
 ---
 
