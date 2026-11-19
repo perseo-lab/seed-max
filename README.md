@@ -11,6 +11,26 @@
 
 ---
 
+## Screens
+
+Generated from the code of this repository with SeedSigner's own screenshot generator, at the Max's 480×320 resolution: what you see is what the device draws.
+
+| | | |
+|---|---|---|
+| ![Splash](docs/screenshots/01-splash.png) | ![Home](docs/screenshots/02-home.png) | ![Seed words: only the letters that lead to a BIP-39 word](docs/screenshots/03-word-entry.png) |
+| Splash | Home | Seed words: only the letters that lead to a BIP-39 word |
+| ![Review transaction](docs/screenshots/04-psbt-overview.png) | ![Transaction math](docs/screenshots/05-psbt-math.png) | ![Change verified](docs/screenshots/06-change-verified.png) |
+| Review transaction | Transaction math | Change verified |
+| ![Address verified, whole, in groups of four](docs/screenshots/07-address-verified.png) | ![Tools](docs/screenshots/08-tools.png) | ![Settings on one list](docs/screenshots/09-settings.png) |
+| Address verified, whole, in groups of four | Tools | Settings on one list |
+
+```bash
+# regenerate them (in a checkout with the test dependencies installed)
+SEEDSIGNER_SCREENSHOT_RESOLUTION=480x320 python3 -m pytest tests/screenshot_generator/generator.py --locale en
+```
+
+---
+
 ## Hardware (v5)
 
 The device is **[Raspy Max v5](https://github.com/perseo-lab/raspy-max-hardware)**: bill of materials, the 3D-printable case and a step-by-step build guide are in its own repository. No custom PCB, no soldering.
