@@ -7,7 +7,7 @@
 | Image | Branch | Latest | What it does |
 |---|---|---|---|
 | **Seed Max** | [`seed-max`](../../tree/seed-max) | v5.9 | SeedSigner 0.8.7 with a 3.5" resistive touch UI and a battery. Signs exactly like SeedSigner 0.8.7. |
-| **Anti-Klepto Check** | [`anti-klepto-check`](../../tree/anti-klepto-check) | v7.8 | A separate image that **never signs**. It verifies transactions signed by *another* device (Coldcard Q, SeedSigner, Trezor) against your seed. It is moving to its own repository. |
+| **Anti-Klepto Check** | **[perseo-lab/anti-klepto-check](https://github.com/perseo-lab/anti-klepto-check)** | v7.10 | A separate image that **never signs**. It verifies transactions signed by *another* device (Coldcard Q, SeedSigner, Trezor) against your seed. Now in its own repository; the [`anti-klepto-check`](../../tree/anti-klepto-check) branch here stays at v7.8 for history. |
 
 ---
 
@@ -59,36 +59,9 @@ Tests: `tests/test_seedsigner_max*.py`, `tests/seedsigner_max_*.py`, `tests/test
 
 ---
 
-## Anti-Klepto Check — verify what your signer actually signed
+## Anti-Klepto Check
 
-A hardware wallet can be compromised (malicious firmware, supply chain, a coordinator you don't control) in ways its own screen will never show you:
-
-- **Nonce covert channel ([Dark Skippy](https://darkskippy.com/) and similar):** the signatures look valid, but their nonces leak your seed to whoever watches the blockchain. A couple of transactions can be enough.
-- **Wrong sighash:** a signature that commits to less than the whole transaction, so others can change it.
-- **Change that isn't yours:** the "change" output pays an attacker, or a multisig quorum that isn't your wallet.
-- **A different transaction:** what gets broadcast is not what you checked, for example because the segwit txid doesn't cover the witnesses.
-
-Anti-Klepto Check runs on a **second, air-gapped device** that holds your seed only in RAM and never signs. It recomputes everything with its own code:
-
-| Check | How |
-|---|---|
-| **RFC 6979 nonce** | recomputes the deterministic nonce each signature *must* have used, under the low-R rule of the signer you name (Coldcard Q = libsecp, SeedSigner = embit, Trezor = none) |
-| **SIGHASH_ALL** | on every signature, and low-S on every signature |
-| **Txid match** | the full txid, shown large, to compare with Sparrow's |
-| **Change check** | every output classified YOURS / NOT YOURS / NOT VERIFIED. Single-sig change keys are re-derived from the seed. Multisig change must match the descriptor confirmed against your paper backup, or the quorum being spent. |
-| **Address check / explorer** | is this address in your wallet? (single-sig BIP84/49/44, or a multisig descriptor from your backup) |
-| **Air-gapped** | the microSD is remounted read-only. Modules that could write it are blocked by an import guard. |
-
-If everything is green, the device rebuilds the transaction **from the signatures it checked**, shows it as a QR code, and you broadcast *that* one from Sparrow (File › Load Transaction › From QR).
-
-**Workflow:** sign on your hardware wallet as usual → scan the signed PSBT (or, for a Coldcard Q, the final transaction plus the unsigned PSBT) into Anti-Klepto Check → compare the txid → if green, scan its QR back into Sparrow and broadcast.
-
-### Limits — read before relying on it
-
-- It only works with signers that use **deterministic RFC 6979 nonces**. Signers that use random nonces, or the interactive *anti-exfil* protocol (Jade, BitBox02), can't be checked this way. Despite the similar name, this tool is not that protocol: it is an after-the-fact check.
-- **Taproot (bech32m) is not supported.** Finalized legacy (non-segwit) inputs are not supported.
-- **Multisig:** a cosigner's nonce can't be recomputed without that cosigner's seed. The result is yellow ("THIS SEED: CLEAN") until you load each cosigner's seed in the same session.
-- **The verifier needs your seed.** Treat it exactly like a signing device: air-gapped, powered off after use (the OS runs from RAM), never connected to anything.
+Anti-Klepto Check, the air-gapped verifier that checks what your hardware wallet actually signed (RFC 6979 nonces against covert channels such as [Dark Skippy](https://darkskippy.com/), SIGHASH_ALL, change, txid), has moved to its own repository: **[perseo-lab/anti-klepto-check](https://github.com/perseo-lab/anti-klepto-check)**. It runs on the same hardware as Seed Max, from its own microSD. Releases, documentation and issues are there.
 
 ---
 
@@ -96,7 +69,7 @@ If everything is green, the device rebuilds the transaction **from the signature
 
 - **Experimental software built by one person.** It is tested by the author on his own device: a mainnet signing test with Seed Max and Sparrow, and device tests of Anti-Klepto Check with a Coldcard Q and Sparrow. **No human third party has audited it.** Start with a test seed and small amounts.
 - **Developed with AI assistance** (Anthropic's Claude). Commits carry `Co-Authored-By` lines. The "independent reviews" mentioned in commit messages were separate AI-agent reviews, adversarial tests and mutation testing, not human audits. Every finding is reproduced as a regression test.
-- Seed Max's signing path is SeedSigner 0.8.7's, unchanged (see the `git diff` above), and the image's operating system is SeedSigner 0.8.7's, unchanged (see *Verify the image* below). Anti-Klepto Check's verifier (`src/nonceverify/`, on the [`anti-klepto-check`](../../tree/anti-klepto-check) branch) is new code that uses the Python standard library only.
+- Seed Max's signing path is SeedSigner 0.8.7's, unchanged (see the `git diff` above), and the image's operating system is SeedSigner 0.8.7's, unchanged (see *Verify the image* below).
 
 Bug reports are welcome as issues. Report security problems **privately** through [Security › Report a vulnerability](../../security/advisories/new), not in a public issue.
 
